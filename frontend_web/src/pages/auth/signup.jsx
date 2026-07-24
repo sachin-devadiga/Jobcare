@@ -1,0 +1,197 @@
+'use client';
+import { useState } from 'react';
+import {
+  Box, Container, TextField, Button, Typography, Paper, InputAdornment,
+  IconButton, Divider, Link, CircularProgress,
+} from '@mui/material';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import GoogleIcon from '@mui/icons-material/Google';
+import LinkedInIcon from '@mui/icons-material/LinkedIn';
+import BusinessIcon from '@mui/icons-material/Business';
+import EmailIcon from '@mui/icons-material/Email';
+import LockIcon from '@mui/icons-material/Lock';
+import PhoneIcon from '@mui/icons-material/Phone';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { signupSchema } from '@/utils/validators';
+import { useAuth } from '@/hooks/useAuth';
+
+export default function SignupPage() {
+  const { register: registerUser, loading } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({ resolver: yupResolver(signupSchema) });
+
+  const onSubmit = async (data) => {
+    try {
+      await registerUser(data);
+    } catch {
+      /* error handled by auth context */
+    }
+  };
+
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          width: '600px',
+          height: '600px',
+          borderRadius: '50%',
+          background: 'rgba(255,255,255,0.05)',
+          top: '-200px',
+          left: '-100px',
+        },
+      }}
+    >
+      <Container maxWidth="sm">
+        <Paper
+          sx={{
+            p: 4,
+            borderRadius: 4,
+            backdropFilter: 'blur(20px)',
+            background: 'rgba(255,255,255,0.95)',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.15)',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <Box
+              sx={{
+                width: 64,
+                height: 64,
+                borderRadius: 3,
+                background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mx: 'auto',
+                mb: 2,
+              }}
+            >
+              <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: 28 }}>J</Typography>
+            </Box>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: '#1E293B' }}>
+              Create Account
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Start hiring with JobCare Voice
+            </Typography>
+          </Box>
+
+          <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+            <TextField
+              fullWidth
+              label="Company Name"
+              {...register('companyName')}
+              error={!!errors.companyName}
+              helperText={errors.companyName?.message}
+              sx={{ mb: 2.5 }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><BusinessIcon sx={{ color: 'text.secondary', fontSize: 20 }} /></InputAdornment>,
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Email"
+              {...register('email')}
+              error={!!errors.email}
+              helperText={errors.email?.message}
+              sx={{ mb: 2.5 }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><EmailIcon sx={{ color: 'text.secondary', fontSize: 20 }} /></InputAdornment>,
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Phone (optional)"
+              {...register('phone')}
+              error={!!errors.phone}
+              helperText={errors.phone?.message}
+              sx={{ mb: 2.5 }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><PhoneIcon sx={{ color: 'text.secondary', fontSize: 20 }} /></InputAdornment>,
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              {...register('password')}
+              error={!!errors.password}
+              helperText={errors.password?.message}
+              sx={{ mb: 2.5 }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><LockIcon sx={{ color: 'text.secondary', fontSize: 20 }} /></InputAdornment>,
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                      {showPassword ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Confirm Password"
+              type="password"
+              {...register('confirmPassword')}
+              error={!!errors.confirmPassword}
+              helperText={errors.confirmPassword?.message}
+              sx={{ mb: 3 }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><LockIcon sx={{ color: 'text.secondary', fontSize: 20 }} /></InputAdornment>,
+              }}
+            />
+            <Button
+              fullWidth
+              variant="contained"
+              type="submit"
+              disabled={loading}
+              sx={{ py: 1.5, borderRadius: 3, fontSize: '1rem', mb: 2 }}
+            >
+              {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Create Account'}
+            </Button>
+          </Box>
+
+          <Divider sx={{ my: 2.5 }}>
+            <Typography variant="caption" color="text.secondary">or sign up with</Typography>
+          </Divider>
+
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button fullWidth variant="outlined" startIcon={<GoogleIcon />} sx={{ py: 1.2, borderRadius: 3, borderColor: 'divider' }}>
+              Google
+            </Button>
+            <Button fullWidth variant="outlined" startIcon={<LinkedInIcon />} sx={{ py: 1.2, borderRadius: 3, borderColor: 'divider' }}>
+              LinkedIn
+            </Button>
+          </Box>
+
+          <Box sx={{ textAlign: 'center', mt: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Already have an account?{' '}
+              <Link href="/auth/login" variant="body2" sx={{ fontWeight: 600 }}>
+                Sign In
+              </Link>
+            </Typography>
+          </Box>
+        </Paper>
+      </Container>
+    </Box>
+  );
+}

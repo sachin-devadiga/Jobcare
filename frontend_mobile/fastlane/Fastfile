@@ -1,0 +1,138 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build Android Release APK and AAB"
+  lane :build_android_release do |options|
+    gradle(
+      task: "clean",
+      project_dir: "android/"
+    )
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: "android/",
+      properties: {
+        "android.injected.signing.store.file" => ENV["ANDROID_KEYSTORE_FILE"],
+        "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
+        "android.injected.signing.key.alias" => ENV["ANDROID_KEY_ALIAS"],
+        "android.injected.signing.key.password" => ENV["ANDROID_KEY_PASSWORD"]
+      }
+    )
+    gradle(
+      task: "assemble",
+      build_type: "Release",
+      project_dir: "android/"
+    )
+  end
+
+  desc "Deploy to Google Play Console (Beta)"
+  lane :deploy_play_store_beta do |options|
+    build_android_release
+    upload_to_play_store(
+      track: "beta",
+      release_status: "completed",
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+  end
+
+  desc "Deploy to Google Play Console (Alpha)"
+  lane :deploy_play_store_alpha do |options|
+    build_android_release
+    upload_to_play_store(
+      track: "alpha",
+      release_status: "completed"
+    )
+  end
+
+  desc "Deploy to Google Play Console (Production)"
+  lane :deploy_play_store_production do |options|
+    build_android_release
+    upload_to_play_store(
+      track: "production",
+      release_status: "completed",
+      rollout: "0.1"
+    )
+  end
+
+  desc "Run Android Tests"
+  lane :run_tests do |options|
+    gradle(
+      task: "test",
+      build_type: "Debug",
+      project_dir: "android/"
+    )
+  end
+end
+
+platform :ios do
+  desc "Build iOS Release"
+  lane :build_ios_release do |options|
+    match(
+      type: "appstore",
+      readonly: true
+    )
+    gym(
+      scheme: "Runner",
+      configuration: "Release",
+      export_method: "app-store",
+      clean: true
+    )
+  end
+
+  desc "Deploy to App Store Connect"
+  lane :deploy_app_store do |options|
+    build_ios_release
+    upload_to_app_store(
+      skip_metadata: false,
+      skip_screenshots: false,
+      force: false,
+      submit_for_review: false,
+      automatic_release: false
+    )
+  end
+
+  desc "Deploy to TestFlight"
+  lane :deploy_testflight do |options|
+    build_ios_release
+    upload_to_testflight(
+      skip_waiting_for_build_processing: false,
+      notify_external_testers: false
+    )
+  end
+
+  desc "Run iOS Tests"
+  lane :run_tests do |options|
+    scan(
+      scheme: "Runner",
+      device: "iPhone 15 Pro"
+    )
+  end
+end
+
+desc "Increment Build Number"
+lane :increment_version do |options|
+  increment_build_number(
+    build_number: options[:build_number] || Time.now.strftime("%Y%m%d%H%M").to_s
+  )
+  increment_version_number(
+    version_number: options[:version_number]
+  ) if options[:version_number]
+end
+
+desc "Run All Tests"
+lane :run_all_tests do |options|
+  gradle(task: "test", build_type: "Debug", project_dir: "android/")
+  scan(scheme: "Runner", device: "iPhone 15 Pro")
+end
+
+desc "Send build notifications"
+lane :notify do |options|
+  slack(
+    message: "New build ready for testing!",
+    channel: "#builds",
+    success: true,
+    default_payloads: [:lane, :test_result]
+  )
+end

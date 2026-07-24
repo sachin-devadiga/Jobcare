@@ -1,0 +1,96 @@
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+*.egg
+dist/
+build/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+*.sqlite3
+.coverage.*
+*.cover
+.hypothesis/
+
+# Environment
+.env
+.env.local
+.env.production
+.env.staging
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Docker
+Dockerfile
+Dockerfile.dev
+docker-compose*.yml
+.dockerignore
+
+# Node
+node_modules/
+package-lock.json
+
+# Flutter
+.dart_tool/
+.packages
+.pub/
+build/
+*.flutter-plugins
+.pub-cache/
+
+# Next.js
+.next/
+out/
+
+# Tests
+test*.py
+tests/
+pytest.ini
+pytest_cache/
+
+# Secrets
+**/secrets/
+**/credentials/
+*.pem
+*.key
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Scripts
+scripts/
+
+# Media
+media/
+mediafiles/
+
+# Logs
+logs/
+*.log

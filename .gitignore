@@ -1,0 +1,295 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+MANIFEST
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.coverage
+.coverage.*
+coverage/
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+nox/
+*.mo
+*.pot
+*.pyz
+*.db
+*.sqlite3
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+pythonenv*
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.staging
+.env.development
+.env.*.local
+!.env.example
+
+# Django
+staticfiles/
+media/
+logs/
+*.log
+local_settings.py
+db.sqlite3
+mediafiles/
+
+# Flask / FastApi
+instance/
+.webassets-cache
+
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub/
+build/
+*.flutter-plugins
+*.flutter-plugins-dependencies
+.dart_tool/package_config.json
+.pub-cache/
+*.iml
+.idea/modules.xml
+.idea/workspace.xml
+*.lock
+!pubspec.lock
+
+# Android (Flutter)
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/key.properties
+android/app/keystore.jks
+android/app/google-services.json
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# iOS (Flutter)
+ios/.symlinks/
+ios/Pods/
+ios/build/
+ios/Runner/GeneratedPluginRegistrant.h
+ios/Runner/GeneratedPluginRegistrant.m
+*.ipa
+*.dSYM.zip
+*.dSYM
+ios/Runner/GoogleService-Info.plist
+
+# Node / JavaScript
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+yarn.lock
+package-lock.json
+.pnpm-debug.log*
+lerna-debug.log*
+
+# Next.js
+.next/
+out/
+.cache/
+next-env.d.ts
+
+# Nuxt.js
+.nuxt/
+nuxt.dist/
+
+# Vue
+dist/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.~lock.*
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+.netbeans/
+nbproject/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.dll
+*.exe
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+
+# Kubernetes
+*.kubeconfig
+
+# Secrets
+**/secrets/
+**/credentials/
+!**/credentials/.gitkeep
+*.pem
+*.key
+*.cert
+id_rsa
+id_dsa
+*.p12
+*.pfx
+
+# Database
+*.dump
+backup_*.sql
+pg_dump_*.sql
+database_backup/
+
+# Certificates
+*.crt
+*.csr
+*.cert
+certbot/
+
+# Logs
+*.log
+/var/log/
+nginx/logs/
+supervisor/logs/
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+coverage.xml
+*.coverage
+
+# Uploads
+uploads/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Media
+media/
+!media/.gitkeep
+
+# Static files
+staticfiles/
+!staticfiles/.gitkeep
+
+# Backend
+backend/.env
+backend/staticfiles/
+backend/media/
+backend/logs/
+backend/credentials/
+
+# Scripts
+scripts/*.pyc
+
+# Sentry
+.sentryclirc
+
+# Editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Vim
+*.swp
+*.swo
+*.un~
+Session.vim
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+.elisp-autofr
+
+# Windows image cache
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+
+# Windows shortcuts
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# JetBrains
+.idea/
+*.iml
+*.iws
+out/
+
+# VS Code
+.vscode/
+.history/
+
+# Ansible
+*.retry

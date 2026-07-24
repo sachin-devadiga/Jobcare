@@ -1,0 +1,187 @@
+name: Flutter Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend_mobile/**"
+      - ".github/workflows/flutter_build.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend_mobile/**"
+  workflow_dispatch:
+    inputs:
+      build_mode:
+        description: "Build mode"
+        required: true
+        default: "release"
+        type: choice
+        options:
+          - debug
+          - release
+
+concurrency:
+  group: flutter-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze Flutter Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.22.x"
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        working-directory: ./frontend_mobile
+        run: flutter pub get
+
+      - name: Run dart analyze
+        working-directory: ./frontend_mobile
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    needs: [analyze]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.22.x"
+          channel: "stable"
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        if: env.KEYSTORE_BASE64
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > frontend_mobile/android/app/keystore.jks
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > frontend_mobile/android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> frontend_mobile/android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> frontend_mobile/android/key.properties
+          echo "storeFile=keystore.jks" >> frontend_mobile/android/key.properties
+
+      - name: Install dependencies
+        working-directory: ./frontend_mobile
+        run: flutter pub get
+
+      - name: Build Android APK
+        working-directory: ./frontend_mobile
+        run: |
+          build_mode="${{ github.event.inputs.build_mode || 'release' }}"
+          flutter build apk --$build_mode --split-per-abi
+
+      - name: Build Android App Bundle
+        working-directory: ./frontend_mobile
+        run: |
+          build_mode="${{ github.event.inputs.build_mode || 'release' }}"
+          flutter build appbundle --$build_mode
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-${{ github.event.inputs.build_mode || 'release' }}
+          path: |
+            frontend_mobile/build/app/outputs/flutter-apk/*.apk
+          retention-days: 30
+
+      - name: Upload App Bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-appbundle-${{ github.event.inputs.build_mode || 'release' }}
+          path: |
+            frontend_mobile/build/app/outputs/bundle/**/*.aab
+          retention-days: 30
+
+  build-ios:
+    name: Build iOS Archive
+    runs-on: macos-latest
+    needs: [analyze]
+    if: false  # Disabled until Apple certificates are configured
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.22.x"
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        working-directory: ./frontend_mobile
+        run: flutter pub get
+
+      - name: Build iOS archive
+        working-directory: ./frontend_mobile
+        run: |
+          flutter build ios --release --no-codesign
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            archive
+
+      - name: Upload iOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-archive
+          path: ${{ runner.temp }}/Runner.xcarchive
+          retention-days: 14
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-android]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate release tag
+        id: tag
+        run: |
+          echo "release_tag=$(date +'v%Y.%m.%d.%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          name: "Release ${{ steps.tag.outputs.release_tag }}"
+          body: "Automated Flutter build from commit ${{ github.sha }}"
+          files: |
+            artifacts/**/*.apk
+            artifacts/**/*.aab
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

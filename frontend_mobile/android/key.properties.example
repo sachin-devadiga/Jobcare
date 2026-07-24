@@ -1,0 +1,8 @@
+# Android Signing Key Configuration
+# Copy this file to key.properties and fill in your signing credentials
+# WARNING: Never commit key.properties to version control
+
+storeFile=C:/Users/sachi/Music/prakash sir/JOBCARE/jobcare_voice/frontend_mobile/android/app/keystore.jks
+storePassword=your_keystore_password_here
+keyAlias=jobcare_voice_release
+keyPassword=your_key_password_here

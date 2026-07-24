@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>JobCare Voice</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>JobCare Voice</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	<key>UIStatusBarHidden</key>
+	<false/>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+
+	<!-- Location Permissions -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>JobCare Voice uses your location to show nearby job opportunities and provide accurate job recommendations based on your area.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>JobCare Voice uses your location in the background to notify you about nearby job opportunities matching your skills.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>JobCare Voice uses your location to provide real-time job alerts for opportunities near you.</string>
+
+	<!-- Camera Permissions -->
+	<key>NSCameraUsageDescription</key>
+	<string>JobCare Voice uses your camera to take profile photos and upload documents for job applications.</string>
+
+	<!-- Microphone Permissions -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>JobCare Voice uses your microphone for voice-based job search and navigation. You can search for jobs, apply, and manage your profile using voice commands.</string>
+
+	<!-- Photo Library Permissions -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>JobCare Voice accesses your photo library to upload profile pictures and document images for job applications.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>JobCare Voice saves job-related documents and images to your photo library.</string>
+
+	<!-- Contacts -->
+	<key>NSContactsUsageDescription</key>
+	<string>JobCare Voice can access your contacts to help you refer jobs to friends and family.</string>
+
+	<!-- Speech Recognition -->
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>JobCare Voice uses speech recognition to process your voice commands for searching jobs and navigating the app.</string>
+
+	<!-- Face ID / Touch ID -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>JobCare Voice uses Face ID to securely authenticate you for quick and safe app access.</string>
+
+	<!-- Reminders / Notifications -->
+	<key>NSUserNotificationAlertStyle</key>
+	<string>alert</string>
+
+	<!-- Background Modes -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+		<string>processing</string>
+	</array>
+
+	<!-- Deep Linking -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.jobcare.voice</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>jobcarevoice</string>
+			</array>
+		</dict>
+	</array>
+
+	<key>FirebaseMessagingAutoInitEnabled</key>
+	<false/>
+	<key>FirebaseScreenReportingEnabled</key>
+	<false/>
+
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

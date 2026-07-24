@@ -1,0 +1,183 @@
+name: Load Tests
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Target URL for load tests'
+        required: true
+        default: 'https://staging.api.jobcarevoice.com'
+      duration:
+        description: 'Test duration in seconds'
+        required: true
+        default: '300'
+      users:
+        description: 'Number of concurrent users'
+        required: true
+        default: '100'
+
+env:
+  LOCUST_HOST: ${{ github.event.inputs.target_url || 'https://staging.api.jobcarevoice.com' }}
+  LOCUST_USERS: ${{ github.event.inputs.users || '100' }}
+  LOCUST_DURATION: ${{ github.event.inputs.duration || '300' }}
+  LOCUST_SPAWN_RATE: '10'
+  BASELINE_DIR: '.load-test-baselines'
+
+jobs:
+  load-test:
+    name: Run Load Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install locust
+
+      - name: Run Locust load tests
+        id: loadtest
+        run: |
+          mkdir -p reports
+          locust \
+            -f backend/load_test/locustfile.py \
+            --host=$LOCUST_HOST \
+            --users=$LOCUST_USERS \
+            --spawn-rate=$LOCUST_SPAWN_RATE \
+            --run-time=${LOCUST_DURATION}s \
+            --headless \
+            --html=reports/load_test_report.html \
+            --json=reports/load_test_results.json \
+            --only-summary
+
+      - name: Parse results
+        id: parse_results
+        run: |
+          echo "Parsing load test results..."
+          python3 -c "
+          import json
+          with open('reports/load_test_results.json') as f:
+              data = json.load(f)
+          stats = data.get('stats', [])
+          failures = data.get('failures', [])
+          errors = data.get('errors', [])
+
+          total_rps = sum(s.get('current_rps', 0) for s in stats)
+          avg_response_time = sum(
+              s.get('avg_response_time', 0) for s in stats
+          ) / max(len(stats), 1)
+          error_rate = data.get('total', {}).get('fail_per_sec', 0)
+          if error_rate:
+              error_rate = (error_rate / max(total_rps, 1)) * 100
+          else:
+              error_rate = 0
+
+          print(f'Total RPS: {total_rps:.2f}')
+          print(f'Avg Response Time: {avg_response_time:.2f}ms')
+          print(f'Error Rate: {error_rate:.2f}%')
+
+          with open('reports/summary.txt', 'w') as out:
+              out.write(f'RPS={total_rps:.2f}\n')
+              out.write(f'AVG_RESPONSE_TIME={avg_response_time:.2f}\n')
+              out.write(f'ERROR_RATE={error_rate:.2f}\n')
+          "
+
+      - name: Compare with baseline
+        id: compare_baseline
+        run: |
+          mkdir -p $BASELINE_DIR
+          BASELINE_FILE="$BASELINE_DIR/baseline.txt"
+          SUMMARY_FILE="reports/summary.txt"
+
+          if [ -f "$BASELINE_FILE" ]; then
+            echo "Comparing with baseline..."
+            source "$SUMMARY_FILE"
+            source "$BASELINE_FILE"
+
+            REGRESSION=false
+
+            if (( $(echo "$AVG_RESPONSE_TIME > $BASELINE_AVG_RESPONSE_TIME * 1.2" | bc -l) )); then
+              echo "::warning::Response time regression: ${AVG_RESPONSE_TIME}ms vs baseline ${BASELINE_AVG_RESPONSE_TIME}ms"
+              REGRESSION=true
+            fi
+
+            if (( $(echo "$ERROR_RATE > 5.0" | bc -l) )); then
+              echo "::error::Error rate too high: ${ERROR_RATE}%"
+              REGRESSION=true
+            fi
+
+            if [ "$REGRESSION" = true ]; then
+              echo "regression=true" >> $GITHUB_OUTPUT
+            else
+              echo "regression=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "No baseline found. Creating baseline..."
+            cp "$SUMMARY_FILE" "$BASELINE_FILE"
+            echo "regression=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update baseline
+        if: github.event_name == 'schedule'
+        run: |
+          cp reports/summary.txt $BASELINE_DIR/baseline.txt
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-report
+          path: reports/
+          retention-days: 30
+
+      - name: Alert on regression
+        if: steps.compare_baseline.outputs.regression == 'true'
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "⚠️ Load test regression detected for ${{ env.LOCUST_HOST }}",
+              "attachments": [
+                {
+                  "color": "danger",
+                  "title": "Load Test Regression",
+                  "fields": [
+                    { "title": "Environment", "value": "${{ env.LOCUST_HOST }}", "short": true },
+                    { "title": "Users", "value": "${{ env.LOCUST_USERS }}", "short": true },
+                    { "title": "Duration", "value": "${{ env.LOCUST_DURATION }}s", "short": true },
+                    { "title": "Report", "value": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Report>", "short": true }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify on success
+        if: success() && github.event_name == 'schedule'
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "✅ Load tests passed for ${{ env.LOCUST_HOST }}",
+              "attachments": [
+                {
+                  "color": "good",
+                  "title": "Load Test Complete",
+                  "fields": [
+                    { "title": "Environment", "value": "${{ env.LOCUST_HOST }}", "short": true },
+                    { "title": "Users", "value": "${{ env.LOCUST_USERS }}", "short": true },
+                    { "title": "Duration", "value": "${{ env.LOCUST_DURATION }}s", "short": true },
+                    { "title": "Report", "value": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Report>", "short": true }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

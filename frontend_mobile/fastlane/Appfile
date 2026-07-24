@@ -1,0 +1,16 @@
+app_identifier("com.jobcare.voice") # The bundle identifier of your app
+apple_id("your-apple-id@example.com") # Your Apple ID email
+
+# For more information about the Appfile, see:
+# https://docs.fastlane.tools/advanced/#appfile
+
+# Google Play credentials
+json_key_file("path/to/google-play-service-account.json") # Path to the service account JSON
+package_name("com.jobcare.voice") # Android package name
+
+# Team information
+team_id("YOUR_TEAM_ID") # Developer Portal Team ID
+itc_team_id("YOUR_ITC_TEAM_ID") # App Store Connect Team ID
+
+# For beta deployments via TestFlight
+dev_portal_team_id("YOUR_DEV_PORTAL_TEAM_ID")

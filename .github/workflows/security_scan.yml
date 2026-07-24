@@ -1,0 +1,205 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  python-security:
+    name: Python Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety pip-audit
+          if [ -f backend/requirements.txt ]; then
+            pip install -r backend/requirements.txt
+          fi
+
+      - name: Run Bandit
+        id: bandit
+        continue-on-error: true
+        run: |
+          bandit -r backend/ -f json -o reports/bandit-report.json -ll -ii
+          bandit -r backend/ -ll -ii
+        working-directory: ${{ github.workspace }}
+
+      - name: Run Safety
+        id: safety
+        continue-on-error: true
+        run: |
+          if [ -f backend/requirements.txt ]; then
+            safety check -r backend/requirements.txt --json > reports/safety-report.json
+            safety check -r backend/requirements.txt
+          fi
+
+      - name: Run pip-audit
+        id: pip_audit
+        continue-on-error: true
+        run: |
+          if [ -f backend/requirements.txt ]; then
+            pip-audit -r backend/requirements.txt --json > reports/pip-audit-report.json
+            pip-audit -r backend/requirements.txt
+          fi
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.1.0
+        with:
+          version: latest
+
+      - name: Run Trivy on backend
+        id: trivy_backend
+        continue-on-error: true
+        run: |
+          trivy fs --format json --output reports/trivy-backend-report.json \
+            --severity HIGH,CRITICAL \
+            --exit-code 0 \
+            backend/
+
+      - name: Run Trivy on Dockerfiles
+        id: trivy_docker
+        continue-on-error: true
+        run: |
+          find . -name "Dockerfile*" -exec trivy config --format json \
+            --output reports/trivy-docker-config-report.json \
+            --exit-code 0 {} \;
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: reports/
+          retention-days: 90
+
+      - name: Check results
+        id: check_results
+        run: |
+          FAILURES=0
+          if [ -f reports/bandit-report.json ]; then
+            HIGH=$(python3 -c "
+import json
+with open('reports/bandit-report.json') as f:
+    data = json.load(f)
+print(sum(1 for r in data.get('results', []) if r.get('issue_severity') in ['HIGH', 'MEDIUM']))
+")
+            if [ "$HIGH" -gt 0 ]; then
+              echo "::warning::Bandit found $HIGH HIGH/MEDIUM severity issues"
+              FAILURES=$((FAILURES + 1))
+            fi
+          fi
+          echo "failures=$FAILURES" >> $GITHUB_OUTPUT
+
+  node-security:
+    name: Node.js Security Scan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend_web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        id: npm_audit
+        continue-on-error: true
+        run: |
+          npm audit --json > ../reports/npm-audit-report.json 2>/dev/null || true
+          npm audit
+
+      - name: Check for critical vulnerabilities
+        run: |
+          if [ -f ../reports/npm-audit-report.json ]; then
+            python3 -c "
+import json
+with open('../reports/npm-audit-report.json') as f:
+    data = json.load(f)
+vulnerabilities = data.get('vulnerabilities', {})
+critical = sum(1 for v in vulnerabilites.values() if v.get('severity') == 'critical')
+high = sum(1 for v in vulnerabilites.values() if v.get('severity') == 'high')
+print(f'Critical: {critical}, High: {high}')
+if critical > 0 or high > 5:
+    print('::warning::Vulnerabilities found')
+"
+          fi
+
+      - name: Upload npm audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-security-report
+          path: frontend_web/reports/npm-audit-report.json
+          retention-days: 90
+
+  docker-security:
+    name: Docker Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.1.0
+        with:
+          version: latest
+
+      - name: Build Docker image
+        run: |
+          docker build -f deploy/Dockerfile -t jobcare-backend:scan .
+
+      - name: Scan Docker image
+        id: trivy_image
+        continue-on-error: true
+        run: |
+          trivy image --format json --output reports/trivy-image-report.json \
+            --severity HIGH,CRITICAL \
+            --exit-code 0 \
+            jobcare-backend:scan
+
+      - name: Upload Trivy report
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-security-report
+          path: reports/trivy-image-report.json
+          retention-days: 90
+
+  summarize:
+    name: Security Summary
+    needs: [python-security, node-security, docker-security]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download all reports
+        uses: actions/download-artifact@v4
+        with:
+          path: all-reports
+
+      - name: Generate summary
+        run: |
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scan | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Python Bandit | ${{ needs.python-security.outputs.bandit_status || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python Safety | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| npm Audit | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy FS | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy Docker | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See attached artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,263 @@
+version: "3.9"
+
+x-shared-env: &shared-env
+  DJANGO_SETTINGS_MODULE: config.settings
+  SECRET_KEY: ${DJANGO_SECRET_KEY:-django-insecure-dev-key-change-in-production}
+  DEBUG: ${DEBUG:-0}
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend,nginx}
+  DB_NAME: ${DB_NAME:-jobcare_db}
+  DB_USER: ${DB_USER:-jobcare_user}
+  DB_PASSWORD: ${DB_PASSWORD:-jobcare_pass}
+  DB_HOST: postgres
+  DB_PORT: ${DB_PORT:-5432}
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/0
+  JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret}
+  JWT_ACCESS_HOURS: ${JWT_ACCESS_HOURS:-24}
+  JWT_REFRESH_DAYS: ${JWT_REFRESH_DAYS:-30}
+  EMAIL_HOST: ${EMAIL_HOST:-smtp.sendgrid.net}
+  EMAIL_PORT: ${EMAIL_PORT:-587}
+  EMAIL_USE_TLS: ${EMAIL_USE_TLS:-True}
+  EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+  EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@jobcare.voice}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,https://jobcare.voice}
+  RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+  RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+  SARVAM_AI_API_KEY: ${SARVAM_AI_API_KEY:-}
+  SARVAM_AI_BASE_URL: ${SARVAM_AI_BASE_URL:-https://api.sarvam.ai}
+  FIREBASE_TYPE: ${FIREBASE_TYPE:-}
+  FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+  FIREBASE_PRIVATE_KEY_ID: ${FIREBASE_PRIVATE_KEY_ID:-}
+  FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:-}
+  FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:-}
+  FIREBASE_CLIENT_ID: ${FIREBASE_CLIENT_ID:-}
+  FIREBASE_AUTH_URI: ${FIREBASE_AUTH_URI:-https://accounts.google.com/o/oauth2/auth}
+  FIREBASE_TOKEN_URI: ${FIREBASE_TOKEN_URI:-https://oauth2.googleapis.com/token}
+  SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-0}
+  SECURE_HSTS_SECONDS: ${SECURE_HSTS_SECONDS:-31536000}
+
+x-shared-depends: &shared-depends
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: jobcare_postgres
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      POSTGRES_DB: ${DB_NAME:-jobcare_db}
+      POSTGRES_USER: ${DB_USER:-jobcare_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-jobcare_pass}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8"
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-jobcare_user} -d ${DB_NAME:-jobcare_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - jobcare_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  redis:
+    image: redis:7-alpine
+    container_name: jobcare_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server --appendonly yes
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - jobcare_network
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+        reservations:
+          memory: 128M
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    image: jobcare/backend:${BUILD_TAG:-latest}
+    container_name: jobcare_backend
+    restart: unless-stopped
+    <<: *shared-env
+    depends_on:
+      <<: *shared-depends
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - backend_logs:/app/logs
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - jobcare_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    image: jobcare/celery-worker:${BUILD_TAG:-latest}
+    container_name: jobcare_celery_worker
+    restart: unless-stopped
+    <<: *shared-env
+    depends_on:
+      <<: *shared-depends
+    command: ["/entrypoint_celery.sh"]
+    volumes:
+      - media_volume:/app/media
+      - backend_logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config inspect ping -d worker@$$HOSTNAME || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - jobcare_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    image: jobcare/celery-beat:${BUILD_TAG:-latest}
+    container_name: jobcare_celery_beat
+    restart: unless-stopped
+    <<: *shared-env
+    depends_on:
+      <<: *shared-depends
+    command: ["/entrypoint_celery_beat.sh"]
+    volumes:
+      - backend_logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config inspect ping -d beat@$$HOSTNAME || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - jobcare_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  nginx:
+    build:
+      context: ./deploy/nginx
+      dockerfile: Dockerfile
+    image: jobcare/nginx:${BUILD_TAG:-latest}
+    container_name: jobcare_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - static_volume:/static
+      - media_volume:/media
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+    networks:
+      - jobcare_network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: jobcare_certbot
+    restart: unless-stopped
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    depends_on:
+      - nginx
+    networks:
+      - jobcare_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+  backend_logs:
+    driver: local
+  certbot_certs:
+    driver: local
+  certbot_www:
+    driver: local
+
+networks:
+  jobcare_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
