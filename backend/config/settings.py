@@ -17,7 +17,93 @@ if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+JAZZMIN_SETTINGS = {
+    'site_title': 'JobCare Admin',
+    'site_header': 'JobCare Voice',
+    'site_brand': 'JobCare Voice',
+    'site_logo': None,
+    'welcome_sign': 'Welcome to JobCare Administration',
+    'copyright': 'JobCare Voice Ltd',
+    'search_model': ['authentication.User', 'jobs.Job'],
+    'topmenu_links': [
+        {'name': 'Home', 'url': 'admin:index', 'permissions': ['auth.view_user']},
+        {'name': 'API Docs', 'url': '/api/docs/', 'new_window': True},
+        {'model': 'authentication.User'},
+    ],
+    'show_sidebar': True,
+    'navigation_expanded': True,
+    'order_with_respect_to': [
+        'authentication', 'users', 'employers', 'companies', 'jobs',
+        'applications', 'chat', 'notifications', 'voice_ai', 'payments',
+        'call_intake', 'analytics', 'auth',
+    ],
+    'icons': {
+        'auth': 'fas fa-users-cog',
+        'auth.Group': 'fas fa-users',
+        'authentication.User': 'fas fa-user',
+        'users.EmployeeProfile': 'fas fa-id-card',
+        'employers.EmployerProfile': 'fas fa-briefcase',
+        'companies.Company': 'fas fa-building',
+        'jobs.Job': 'fas fa-file-alt',
+        'jobs.Category': 'fas fa-tags',
+        'jobs.Skill': 'fas fa-star',
+        'applications.Application': 'fas fa-paper-plane',
+        'chat.Conversation': 'fas fa-comments',
+        'notifications.Notification': 'fas fa-bell',
+        'voice_ai.VoiceSession': 'fas fa-microphone',
+        'payments.Payment': 'fas fa-credit-card',
+        'payments.Subscription': 'fas fa-crown',
+        'payments.SubscriptionPlan': 'fas fa-list-alt',
+        'call_intake.CallSession': 'fas fa-phone',
+        'call_intake.IntakeQuestion': 'fas fa-question-circle',
+    },
+    'default_icon_parents': 'fas fa-folder',
+    'default_icon_children': 'fas fa-circle',
+    'related_modal_active': True,
+    'custom_css': None,
+    'custom_js': None,
+    'show_ui_builder': False,
+    'changeform_format': 'horizontal_tabs',
+    'changeform_format_overrides': {
+        'authentication.User': 'vertical_tabs',
+        'jobs.Job': 'horizontal_tabs',
+    },
+    'collapse_action_links': True,
+}
+
+JAZZMIN_UI_TWEAKS = {
+    'navbar_small_text': False,
+    'footer_small_text': False,
+    'body_small_text': False,
+    'brand_small_text': False,
+    'brand_colour': False,
+    'accent': 'accent-primary',
+    'navbar': 'navbar-dark',
+    'no_navbar_border': False,
+    'navbar_fixed': True,
+    'layout_boxed': False,
+    'footer_fixed': False,
+    'sidebar_fixed': True,
+    'sidebar': 'sidebar-dark-primary',
+    'sidebar_nav_small_text': False,
+    'sidebar_disable_expand': False,
+    'sidebar_nav_child_indent': True,
+    'sidebar_nav_compact_style': False,
+    'sidebar_nav_legacy_style': False,
+    'sidebar_nav_flat_style': False,
+    'theme': 'default',
+    'button_classes': {
+        'primary': 'btn-primary',
+        'secondary': 'btn-secondary',
+        'info': 'btn-info',
+        'warning': 'btn-warning',
+        'danger': 'btn-danger',
+        'success': 'btn-success',
+    },
+}
+
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -289,6 +375,9 @@ PLIVO_SENDER_NUMBER = config('PLIVO_SENDER_NUMBER', default='')
 PLIVO_WEBHOOK_TOKEN = config('PLIVO_WEBHOOK_TOKEN', default='')
 PLIVO_RECORDING_ALLOWED_HOSTS = config('PLIVO_RECORDING_ALLOWED_HOSTS', default='s3.amazonaws.com,s3.us-east-1.amazonaws.com,plivo-prod-recording.s3.amazonaws.com', cast=Csv())
 
+LOG_HANDLERS = ['console']
+LOG_HANDLERS_ERROR = ['console']
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -307,35 +396,20 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'json' if not DEBUG else 'verbose',
         },
-        'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'app.log',
-            'maxBytes': 10485760,
-            'backupCount': 10,
-            'formatter': 'json' if not DEBUG else 'verbose',
-        },
-        'error_file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'error.log',
-            'maxBytes': 10485760,
-            'backupCount': 10,
-            'level': 'ERROR',
-            'formatter': 'json' if not DEBUG else 'verbose',
-        },
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': config('DJANGO_LOG_LEVEL', default='INFO'),
             'propagate': True,
         },
         'django.request': {
-            'handlers': ['error_file'],
+            'handlers': ['console'],
             'level': 'ERROR',
             'propagate': False,
         },
         'jobcare': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': config('APP_LOG_LEVEL', default='DEBUG' if DEBUG else 'INFO'),
             'propagate': False,
         },
