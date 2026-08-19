@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -381,6 +382,8 @@ class EmailOTPRequestView(APIView):
         phone = serializer.validated_data['phone']
         provided_email = serializer.validated_data.get('email', '')
 
+        from authentication.models import EmailOTP
+
         user = User.objects.filter(phone=phone).first()
         email = ''
         if provided_email:
@@ -402,8 +405,8 @@ class EmailOTPRequestView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        attempts_key = f'email_otp_attempts:{phone}'
-        attempts = cache.get(attempts_key, 0)
+        recent_cutoff = timezone.now() - timezone.timedelta(minutes=5)
+        attempts = EmailOTP.objects.filter(phone=phone, created_at__gte=recent_cutoff).count()
         if attempts >= EMAIL_OTP_MAX_SENDS:
             logger.warning(f'Email OTP rate limit hit for {phone}')
             return Response(
@@ -412,9 +415,9 @@ class EmailOTPRequestView(APIView):
             )
 
         otp = _generate_otp()
+        EmailOTP.objects.filter(phone=phone, is_used=False).update(is_used=True)
+        EmailOTP.objects.create(phone=phone, otp=otp, email=email)
         cache.delete(f'email_otp_verify_attempts:{phone}')
-        cache.set(f'email_otp:{phone}', otp, timeout=EMAIL_OTP_TTL)
-        cache.set(f'email_otp_email:{phone}', email, timeout=EMAIL_OTP_TTL)
 
         smtp_configured = bool(settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD)
         if settings.DEBUG:
@@ -426,7 +429,6 @@ class EmailOTPRequestView(APIView):
             pass
         elif not smtp_configured:
             logger.error('Email OTP requested but SMTP is not configured')
-            cache.delete(f'email_otp:{phone}')
             return Response(
                 {'success': False, 'message': 'Email service not configured. Please contact support.'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -439,13 +441,11 @@ class EmailOTPRequestView(APIView):
                 context={'otp': otp},
             )
             if not sent:
-                cache.delete(f'email_otp:{phone}')
                 return Response(
                     {'success': False, 'message': 'Failed to send OTP. Please try again.'},
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
 
-        cache.set(attempts_key, attempts + 1, timeout=EMAIL_OTP_TTL)
         return Response({
             'success': True,
             'message': 'OTP sent successfully',
@@ -466,6 +466,8 @@ class EmailOTPVerifyView(APIView):
         phone = serializer.validated_data['phone']
         otp = serializer.validated_data['otp']
 
+        from authentication.models import EmailOTP
+
         verify_attempts_key = f'email_otp_verify_attempts:{phone}'
         verify_attempts = cache.get(verify_attempts_key, 0)
         if verify_attempts >= EMAIL_OTP_VERIFY_MAX_ATTEMPTS:
@@ -475,8 +477,8 @@ class EmailOTPVerifyView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
-        cached_otp = cache.get(f'email_otp:{phone}')
-        if cached_otp is None or secrets.compare_digest(str(cached_otp), str(otp)) is False:
+        otp_record = EmailOTP.objects.filter(phone=phone, is_used=False).order_by('-created_at').first()
+        if otp_record is None or not otp_record.verify(otp):
             cache.set(verify_attempts_key, verify_attempts + 1, timeout=EMAIL_OTP_VERIFY_ATTEMPT_WINDOW)
             return Response(
                 {'success': False, 'message': 'Invalid or expired OTP'},
@@ -484,10 +486,7 @@ class EmailOTPVerifyView(APIView):
             )
 
         cache.delete(verify_attempts_key)
-        cache.delete(f'email_otp:{phone}')
-        cache.delete(f'email_otp_attempts:{phone}')
-        requested_email = cache.get(f'email_otp_email:{phone}') or ''
-        cache.delete(f'email_otp_email:{phone}')
+        requested_email = otp_record.email or ''
 
         user = User.objects.filter(phone=phone).first()
         is_new_user = False

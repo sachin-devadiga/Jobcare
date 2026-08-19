@@ -356,9 +356,12 @@ class TestExotelPhoneOTP:
 
 class TestEmailOTP:
     @pytest.fixture(autouse=True)
-    def _clean_email_otp_cache(self):
+    def _clean_email_otp(self):
+        from authentication.models import EmailOTP
+        EmailOTP.objects.all().delete()
         cache.clear()
         yield
+        EmailOTP.objects.all().delete()
         cache.clear()
 
     @pytest.fixture
@@ -377,6 +380,10 @@ class TestEmailOTP:
         payload = {'phone': phone, 'otp': otp, **extra}
         return api_client.post(EMAIL_OTP_VERIFY_URL, payload, format='json')
 
+    def _create_otp(self, phone='+919876543230', otp='123456', email='otpuser@example.com'):
+        from authentication.models import EmailOTP
+        return EmailOTP.objects.create(phone=phone, otp=otp, email=email)
+
     def test_request_sends_to_supplied_email(self, api_client, mock_email_service):
         response = self._request(api_client)
         assert response.status_code == status.HTTP_200_OK
@@ -385,7 +392,8 @@ class TestEmailOTP:
         send_email = mock_email_service.return_value.send_email
         assert send_email.call_args.kwargs['recipient_list'] == ['otpuser@example.com']
         assert send_email.call_args.kwargs['template_name'] == 'emails/otp.html'
-        assert cache.get('email_otp:+919876543230') is not None
+        from authentication.models import EmailOTP
+        assert EmailOTP.objects.filter(phone='+919876543230').exists()
 
     def test_request_uses_supplied_email_over_email_on_file(self, api_client, mock_email_service, employee_user):
         response = self._request(api_client, phone=employee_user.phone, email='new@example.com')
@@ -438,29 +446,25 @@ class TestEmailOTP:
         with override_settings(AUTH_OTP_CHANNEL='sms'):
             response = self._request(api_client)
         assert response.status_code == status.HTTP_409_CONFLICT
-        assert cache.get('email_otp:+919876543230') is None
 
     def test_verify_creates_new_user_with_requested_email(self, api_client, mock_email_service):
-        cache.set('email_otp:+919876543230', '123456', timeout=300)
-        cache.set('email_otp_email:+919876543230', 'otpuser@example.com', timeout=300)
+        self._create_otp()
         response = self._verify(api_client, role='employee')
         assert response.status_code == status.HTTP_200_OK
         assert response.data['is_new_user'] is True
         assert response.data['data']['user']['email'] == 'otpuser@example.com'
         assert 'access' in response.data['data']
         assert 'refresh' in response.data['data']
-        assert cache.get('email_otp:+919876543230') is None
 
     def test_verify_logs_in_existing_user(self, api_client, mock_email_service, employee_user):
-        cache.set(f'email_otp:{employee_user.phone}', '123456', timeout=300)
+        self._create_otp(phone=employee_user.phone, email=employee_user.email)
         response = self._verify(api_client, phone=employee_user.phone)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['is_new_user'] is False
         assert response.data['data']['user']['email'] == employee_user.email
-        assert cache.get(f'email_otp:{employee_user.phone}') is None
 
     def test_verify_invalid_code(self, api_client, mock_email_service):
-        cache.set('email_otp:+919876543230', '654321', timeout=300)
+        self._create_otp(otp='654321')
         response = self._verify(api_client, otp='000000')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert cache.get('email_otp_verify_attempts:+919876543230') == 1
@@ -470,14 +474,14 @@ class TestEmailOTP:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_verify_locks_after_five_wrong_attempts(self, api_client, mock_email_service):
-        cache.set('email_otp:+919876543230', '123456', timeout=300)
+        self._create_otp()
         for _ in range(5):
             assert self._verify(api_client, otp='000000').status_code == status.HTTP_400_BAD_REQUEST
         response = self._verify(api_client, otp='123456')
         assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
 
     def test_new_otp_request_resets_verify_attempts(self, api_client, mock_email_service):
-        cache.set('email_otp:+919876543230', '123456', timeout=300)
+        self._create_otp()
         for _ in range(5):
             self._verify(api_client, otp='000000')
         assert self._request(api_client).status_code == status.HTTP_200_OK

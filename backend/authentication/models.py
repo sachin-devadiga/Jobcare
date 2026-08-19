@@ -85,3 +85,41 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def is_admin_user(self):
         return self.role == self.Role.ADMIN
+
+
+class EmailOTP(models.Model):
+    """Store OTPs in the database so they work across gunicorn workers."""
+    phone = models.CharField(max_length=20, db_index=True)
+    otp = models.CharField(max_length=6)
+    email = models.EmailField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'OTP for {self.phone}'
+
+    @property
+    def is_expired(self):
+        from django.utils import timezone
+        import datetime
+        return (timezone.now() - self.created_at) > datetime.timedelta(minutes=5)
+
+    def verify(self, otp_input):
+        if self.is_used or self.is_expired:
+            return False
+        import secrets
+        if secrets.compare_digest(self.otp, otp_input):
+            self.is_used = True
+            self.save(update_fields=['is_used'])
+            return True
+        return False
+
+    @classmethod
+    def cleanup_expired(cls):
+        from django.utils import timezone
+        import datetime
+        cutoff = timezone.now() - datetime.timedelta(minutes=10)
+        cls.objects.filter(created_at__lt=cutoff).delete()
