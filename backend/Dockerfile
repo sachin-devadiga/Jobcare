@@ -13,6 +13,7 @@ RUN apt-get update && \
         gettext \
         libffi-dev \
         libssl-dev \
+        libargon2-dev \
         curl \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -45,6 +46,7 @@ RUN apt-get update && \
         curl \
         netcat-openbsd \
         libmagic1 \
+        libargon2-dev \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p $APP_HOME $APP_HOME/staticfiles $APP_HOME/media $APP_HOME/logs && \
