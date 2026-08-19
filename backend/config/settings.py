@@ -327,6 +327,7 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@blieve.in')
 EMAIL_FROM_NAME = config('EMAIL_FROM_NAME', default='JobCare Voice')
+BREVO_API_KEY = config('BREVO_API_KEY', default='')
 
 FIREBASE_CONFIG = {
     'type': config('FIREBASE_TYPE', default=''),

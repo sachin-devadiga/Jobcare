@@ -123,6 +123,16 @@ class FCMNotificationService:
 
 
 class EmailNotificationService:
+    BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email'
+
+    def _get_api_key(self):
+        return getattr(settings, 'BREVO_API_KEY', '') or getattr(settings, 'EMAIL_HOST_PASSWORD', '')
+
+    def _get_from(self):
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', '')
+        from_name = getattr(settings, 'EMAIL_FROM_NAME', 'JobCare Voice')
+        return {'email': from_email, 'name': from_name}
+
     def send_email(
         self,
         subject: str,
@@ -132,39 +142,44 @@ class EmailNotificationService:
         html_message: str = None,
         plain_message: str = None,
     ) -> bool:
-        try:
-            from_email = settings.DEFAULT_FROM_EMAIL
-            from_name = getattr(settings, 'EMAIL_FROM_NAME', '').strip()
-            if from_name:
-                from_email = f'{from_name} <{from_email}>'
-            if html_message:
-                msg = html_message
-                plain = strip_tags(html_message) if not plain_message else plain_message
-            elif template_name and context:
-                html_message = render_to_string(template_name, context)
-                plain_message = strip_tags(html_message)
-                msg = html_message
-                plain = plain_message
-            else:
-                msg = None
-                plain = plain_message or ''
+        api_key = self._get_api_key()
+        if not api_key:
+            logger.error('No Brevo API key configured')
+            return False
 
-            import socket
-            old_timeout = socket.getdefaulttimeout()
-            socket.setdefaulttimeout(getattr(settings, 'EMAIL_TIMEOUT', 10))
-            try:
-                send_mail(
-                    subject=subject,
-                    message=plain or msg or '',
-                    from_email=from_email,
-                    recipient_list=recipient_list,
-                    html_message=msg,
-                    fail_silently=False,
-                )
-            finally:
-                socket.setdefaulttimeout(old_timeout)
-            logger.info(f'Email sent: {subject} to {recipient_list}')
-            return True
+        if html_message:
+            html_content = html_message
+            plain_content = strip_tags(html_message)
+        elif template_name and context:
+            html_content = render_to_string(template_name, context)
+            plain_content = strip_tags(html_content)
+        else:
+            html_content = plain_message or ''
+            plain_content = plain_message or ''
+
+        payload = {
+            'sender': self._get_from(),
+            'to': [{'email': addr} for addr in recipient_list],
+            'subject': subject,
+            'htmlContent': html_content,
+            'textContent': plain_content,
+        }
+
+        try:
+            resp = requests.post(
+                self.BREVO_API_URL,
+                json=payload,
+                headers={
+                    'api-key': api_key,
+                    'Content-Type': 'application/json',
+                },
+                timeout=10,
+            )
+            if resp.status_code in (200, 201):
+                logger.info(f'Email sent: {subject} to {recipient_list}')
+                return True
+            logger.error(f'Brevo API error {resp.status_code}: {resp.text[:300]}')
+            return False
         except Exception as e:
             logger.error(f'Email send error: {str(e)}')
             return False
