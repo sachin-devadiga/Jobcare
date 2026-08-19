@@ -22,10 +22,10 @@ WORKDIR /app
 RUN python -m venv /venv
 ENV PATH="/venv/bin:$PATH"
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/ .
 
 RUN python manage.py collectstatic --noinput --clear 2>/dev/null || true
 
