@@ -183,8 +183,8 @@ CACHES = {
     }
 } if DEBUG else {
     'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': REDIS_URL,
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache_table',
         'TIMEOUT': 300,
     }
 }

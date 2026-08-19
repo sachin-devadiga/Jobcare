@@ -229,8 +229,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoginLoading: false,
         isNewUser: user.name.trim().isEmpty,
       );
+    } on Failure catch (e) {
+      state = state.copyWith(isLoginLoading: false, failure: e);
     } catch (e) {
-      state = state.copyWith(isLoginLoading: false, failure: const Failure(message: 'Invalid OTP'));
+      state = state.copyWith(isLoginLoading: false, failure: Failure(message: e.toString()));
     }
   }
 
