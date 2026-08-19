@@ -43,8 +43,6 @@ RUN apt-get update && \
         libpq-dev \
         gettext \
         curl \
-        libpcre3 \
-        libpcre3-dev \
         netcat-openbsd \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
