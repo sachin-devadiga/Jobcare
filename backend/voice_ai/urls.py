@@ -8,4 +8,5 @@ urlpatterns = [
     path('navigate/', views.VoiceNavigationView.as_view(), name='voice-navigate'),
     path('history/', views.VoiceSessionHistoryView.as_view(), name='voice-history'),
     path('extract-profile/', views.ExtractProfileView.as_view(), name='voice-extract-profile'),
+    path('build-resume/', views.BuildResumeView.as_view(), name='voice-build-resume'),
 ]

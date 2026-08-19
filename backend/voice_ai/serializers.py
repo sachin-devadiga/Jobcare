@@ -52,3 +52,22 @@ class VoiceSearchSerializer(serializers.Serializer):
 class ExtractProfileSerializer(serializers.Serializer):
     transcript = serializers.CharField()
     language = serializers.CharField(default='hi', required=False)
+
+
+class BuildResumeSerializer(serializers.Serializer):
+    audio = serializers.FileField()
+    language = serializers.CharField(default='hi', required=False)
+
+    MAX_AUDIO_SIZE = 20 * 1024 * 1024
+    ALLOWED_CONTENT_TYPES = {
+        'audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a',
+        'audio/wav', 'audio/x-wav', 'audio/webm', 'application/octet-stream',
+    }
+
+    def validate_audio(self, value):
+        if value.size > self.MAX_AUDIO_SIZE:
+            raise serializers.ValidationError('Audio files must be 20 MB or smaller.')
+        content_type = getattr(value, 'content_type', '')
+        if content_type and content_type.lower() not in self.ALLOWED_CONTENT_TYPES:
+            raise serializers.ValidationError('Unsupported audio file type.')
+        return value
