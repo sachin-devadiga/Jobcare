@@ -149,14 +149,20 @@ class EmailNotificationService:
                 msg = None
                 plain = plain_message or ''
 
-            send_mail(
-                subject=subject,
-                message=plain or msg or '',
-                from_email=from_email,
-                recipient_list=recipient_list,
-                html_message=msg,
-                fail_silently=False,
-            )
+            import socket
+            old_timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(getattr(settings, 'EMAIL_TIMEOUT', 10))
+            try:
+                send_mail(
+                    subject=subject,
+                    message=plain or msg or '',
+                    from_email=from_email,
+                    recipient_list=recipient_list,
+                    html_message=msg,
+                    fail_silently=False,
+                )
+            finally:
+                socket.setdefaulttimeout(old_timeout)
             logger.info(f'Email sent: {subject} to {recipient_list}')
             return True
         except Exception as e:
