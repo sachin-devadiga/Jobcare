@@ -1,0 +1,160 @@
+services:
+  # Django Web Service
+  - type: web
+    name: jobcare-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health/
+    autoDeploy: true
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: ALLOWED_HOSTS
+        fromService:
+          type: web
+          name: jobcare-backend
+          property: host
+      - key: DATABASE_URL
+        fromDatabase:
+          name: jobcare-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: jobcare-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: jobcare-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: jobcare-redis
+          property: connectionString
+      - key: CORS_ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: jobcare-backend
+          property: host
+          defaultValue: "https://jobcare-backend.onrender.com"
+      # Set these manually in Render Dashboard (set sync: false or add after deploy):
+      - key: SARVAM_AI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: EXOTEL_API_KEY
+        sync: false
+      - key: EXOTEL_API_TOKEN
+        sync: false
+      - key: EXOTEL_SID
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: AUTH_OTP_CHANNEL
+        value: "email"
+      - key: DJANGO_SUPERUSER_EMAIL
+        value: "admin@jobcare.voice"
+      - key: DJANGO_SUPERUSER_PHONE
+        value: "9999999999"
+      - key: DJANGO_SUPERUSER_PASSWORD
+        generateValue: true
+
+  # Celery Worker
+  - type: worker
+    name: jobcare-celery
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          type: web
+          name: jobcare-backend
+          property: env.DJANGO_SECRET_KEY
+      - key: JWT_SECRET_KEY
+        fromService:
+          type: web
+          name: jobcare-backend
+          property: env.JWT_SECRET_KEY
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: jobcare-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: jobcare-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: jobcare-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: jobcare-redis
+          property: connectionString
+    buildCommand: ""
+    startCommand: cd /app && celery -A config worker -l info --concurrency=2
+
+  # Celery Beat Scheduler
+  - type: worker
+    name: jobcare-celery-beat
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          type: web
+          name: jobcare-backend
+          property: env.DJANGO_SECRET_KEY
+      - key: JWT_SECRET_KEY
+        fromService:
+          type: web
+          name: jobcare-backend
+          property: env.JWT_SECRET_KEY
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: jobcare-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: jobcare-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: jobcare-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: jobcare-redis
+          property: connectionString
+    buildCommand: ""
+    startCommand: cd /app && celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
+databases:
+  - name: jobcare-db
+    plan: starter
+    databaseName: jobcare_db
+
+  - name: jobcare-redis
+    plan: starter
+    ipAllowList: []

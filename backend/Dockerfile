@@ -1,5 +1,5 @@
 # Stage 1: Build stage
-FROM python:3.13-slim AS builder
+FROM python:3.12-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -30,7 +30,7 @@ COPY . .
 RUN python manage.py collectstatic --noinput --clear 2>/dev/null || true
 
 # Stage 2: Production stage
-FROM python:3.13-slim AS production
+FROM python:3.12-slim AS production
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -45,6 +45,7 @@ RUN apt-get update && \
         curl \
         libpcre3 \
         libpcre3-dev \
+        netcat-openbsd \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p $APP_HOME $APP_HOME/staticfiles $APP_HOME/media $APP_HOME/logs && \
