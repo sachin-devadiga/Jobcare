@@ -37,6 +37,37 @@ def health_check(request):
         'checks': checks,
     }, status=200 if healthy else 503)
 
+
+def smtp_debug(request):
+    import smtplib, socket, traceback
+    result = {}
+    result['host'] = settings.EMAIL_HOST
+    result['port'] = settings.EMAIL_PORT
+    result['tls'] = settings.EMAIL_USE_TLS
+    result['user'] = getattr(settings, 'EMAIL_HOST_USER', '')
+    result['password_set'] = bool(getattr(settings, 'EMAIL_HOST_PASSWORD', ''))
+    result['from_email'] = settings.DEFAULT_FROM_EMAIL
+    result['timeout'] = getattr(settings, 'EMAIL_TIMEOUT', None)
+
+    try:
+        socket.setdefaulttimeout(10)
+        server = smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT, timeout=10)
+        server.ehlo()
+        if settings.EMAIL_USE_TLS:
+            server.starttls()
+            server.ehlo()
+        if settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD:
+            server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
+            result['login'] = 'ok'
+        server.quit()
+        result['status'] = 'connected'
+    except Exception as e:
+        result['status'] = 'error'
+        result['error'] = str(e)
+        result['trace'] = traceback.format_exc()
+
+    return JsonResponse(result)
+
 api_urlpatterns = [
     path('auth/', include('authentication.urls')),
     path('users/', include('users.urls')),
@@ -54,6 +85,7 @@ api_urlpatterns = [
 
 urlpatterns = [
     path('api/health/', health_check, name='health-check'),
+    path('api/smtp-debug/', smtp_debug, name='smtp-debug'),
     path('admin/', admin.site.urls),
     path('api/v1/', include(api_urlpatterns)),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
