@@ -9,6 +9,7 @@ import '../screens/language_selection_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/signup_screen.dart';
 import '../screens/otp_verification_screen.dart';
+import '../screens/forgot_password_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/jobs_screen.dart';
 import '../screens/job_detail_screen.dart';
@@ -33,38 +34,53 @@ final _routerKey = GlobalKey<NavigatorState>();
 final _shellKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-
-  return GoRouter(
+  // Do not watch authProvider here. Watching it recreates GoRouter on every
+  // auth state change, which removes the navigator's inherited routing tree
+  // while route descendants can still depend on it.
+  final router = GoRouter(
     navigatorKey: _routerKey,
     initialLocation: RouteNames.splash,
     debugLogDiagnostics: false,
     refreshListenable: ref.read(authProvider.notifier).listenable,
     redirect: (context, state) {
+      final authState = ref.read(authProvider);
       final isLoggedIn = authState.status == AuthStatus.authenticated;
       final isSplash = state.matchedLocation == RouteNames.splash;
-      final isAuthRoute = state.matchedLocation == RouteNames.login ||
+      final isPublicAuthRoute = state.matchedLocation == RouteNames.login ||
           state.matchedLocation == RouteNames.signup ||
           state.matchedLocation == RouteNames.otpVerification ||
           state.matchedLocation == RouteNames.forgotPassword ||
-          state.matchedLocation == RouteNames.onboarding ||
+          state.matchedLocation == RouteNames.onboarding;
+      // Language selection is shared by onboarding and Settings. It must stay
+      // available to signed-in users so they can change the app language.
+      final isLanguageSelection =
           state.matchedLocation == RouteNames.languageSelection;
 
       if (isSplash) return null;
-      if (!isLoggedIn && !isAuthRoute) return RouteNames.login;
-      
-      // FIXED: Only redirect to home if logged in AND not a new user needing name entry
-      if (isLoggedIn && isAuthRoute && !authState.isNewUser) return RouteNames.home;
-      
+      if (!isLoggedIn && !isPublicAuthRoute && !isLanguageSelection) {
+        return RouteNames.login;
+      }
+      if (isLoggedIn && isPublicAuthRoute && !authState.isNewUser) {
+        return RouteNames.home;
+      }
+
       return null;
     },
     routes: [
       GoRoute(path: RouteNames.splash, name: 'splash', builder: (context, state) => const SplashScreen()),
       GoRoute(path: RouteNames.onboarding, name: 'onboarding', builder: (context, state) => const OnboardingScreen()),
-      GoRoute(path: RouteNames.languageSelection, name: 'languageSelection', builder: (context, state) => const LanguageSelectionScreen()),
+      GoRoute(
+        path: RouteNames.languageSelection,
+        name: 'languageSelection',
+        builder: (context, state) => LanguageSelectionScreen(
+          returnToSettings: state.uri.queryParameters['from'] == 'settings',
+        ),
+      ),
       GoRoute(path: RouteNames.login, name: 'login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: RouteNames.signup, name: 'signup', builder: (context, state) => const SignupScreen()),
       GoRoute(path: RouteNames.otpVerification, name: 'otpVerification', builder: (context, state) => const OtpVerificationScreen()),
+      GoRoute(path: RouteNames.forgotPassword, name: 'forgotPassword', builder: (context, state) => const ForgotPasswordScreen()),
+
       ShellRoute(
         navigatorKey: _shellKey,
         builder: (context, state, child) {
@@ -74,6 +90,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           if (location.startsWith(RouteNames.applications)) currentIndex = 2;
           if (location.startsWith(RouteNames.messages)) currentIndex = 3;
           if (location.startsWith(RouteNames.profile)) currentIndex = 4;
+
           return HomeShell(child: child, currentIndex: currentIndex);
         },
         routes: [
@@ -95,6 +112,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: RouteNames.profile, name: 'profile', builder: (context, state) => const ProfileScreen()),
         ],
       ),
+
       GoRoute(path: RouteNames.searchResults, name: 'searchResults', builder: (context, state) => SearchResultsScreen(query: state.uri.queryParameters['query'] ?? '')),
       GoRoute(path: RouteNames.voiceAssistant, name: 'voiceAssistant', builder: (context, state) => const VoiceAssistantScreen()),
       GoRoute(path: RouteNames.voiceHelp, name: 'voiceHelp', builder: (context, state) => const VoiceHelpScreen()),
@@ -107,6 +125,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: RouteNames.helpSupport, name: 'helpSupport', builder: (context, state) => const HelpSupportScreen()),
     ],
   );
+
+  // GoRouter registers listeners with its refreshListenable. Dispose it before
+  // this provider releases the AuthNotifier's ChangeNotifier.
+  ref.onDispose(router.dispose);
+  return router;
 });
 
 class HomeShell extends StatelessWidget {

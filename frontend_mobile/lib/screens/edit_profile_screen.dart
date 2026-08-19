@@ -84,9 +84,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
     try {
-      if (_profileImagePath != null) {
-        await ref.read(profileProvider.notifier).uploadProfileImage(_profileImagePath!);
-      }
       await ref.read(profileProvider.notifier).updateEmployeeProfile(
             fullName: _nameController.text.trim(),
             phone: _phoneController.text.trim(),
@@ -97,6 +94,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             preferredJobType: _selectedJobType,
             isAvailable: _isAvailable,
           );
+      if (_profileImagePath != null) {
+        await ref.read(profileProvider.notifier).uploadProfileImage(_profileImagePath!);
+      }
       if (mounted) context.pop();
     } catch (_) {
       if (mounted) setState(() => _isSaving = false);

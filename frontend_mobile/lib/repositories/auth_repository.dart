@@ -8,8 +8,8 @@ class AuthRepository {
 
   AuthRepository(this._authService, this._storageService);
 
-  Future<void> sendOtp(String phone) async {
-    await _authService.sendOtp(phone: phone);
+  Future<void> sendOtp(String phone, {String? email}) async {
+    await _authService.sendOtp(phone: phone, email: email);
   }
 
   Future<UserModel> loginWithEmail(String email, String password) async {
@@ -26,12 +26,28 @@ class AuthRepository {
     );
   }
 
+  Future<void> forgotPassword(String email) async {
+    await _authService.forgotPassword(email: email);
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String password,
+  }) async {
+    await _authService.resetPassword(email: email, otp: otp, password: password);
+  }
+
   Future<UserModel> verifyOtp(String phone, String otp, {String? name}) async {
     return await _authService.verifyOtp(phone: phone, otp: otp, name: name);
   }
 
   Future<UserModel> getCurrentUser() async {
     return await _authService.getCurrentUser();
+  }
+
+  Future<UserModel?> restoreSession() async {
+    return _authService.restoreSession();
   }
 
   Future<void> logout() async {

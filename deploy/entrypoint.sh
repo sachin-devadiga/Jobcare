@@ -47,8 +47,9 @@ if not User.objects.filter(is_superuser=True).exists():
     User.objects.create_superuser(
         email='${DJANGO_SUPERUSER_EMAIL:-admin@jobcare.voice}',
         phone='${DJANGO_SUPERUSER_PHONE:-9999999999}',
-        password='${DJANGO_SUPERUSER_PASSWORD:-admin123}',
-        user_type='admin',
+        password='${DJANGO_SUPERUSER_PASSWORD:-ChangeMeInProduction!}',
+        role='admin',
+        name='Admin',
         is_active=True,
         is_staff=True
     )

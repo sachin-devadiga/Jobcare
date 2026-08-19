@@ -3,9 +3,16 @@ class AppConstants {
 
   static const String appName = 'JobCare Voice';
   
-  // Use your PC's Local IP here if testing on a real phone (e.g., 192.168.1.5)
-  static const String baseUrl = 'http://10.0.2.2:8000/api/v1/'; 
-  static const String sarvamBaseUrl = 'https://api.sarvam.ai';
+  // Supplied at build time, for example:
+  // --dart-define=API_BASE_URL=https://api.blieve.in/api/v1/
+  // Never put provider credentials in a mobile application.
+  // The default is the dev backend on the host PC's LAN IP (physical device
+  // testing). For the Android emulator use:
+  // --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1/
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://192.168.1.4:8000/api/v1/',
+  );
   
   // Reduced timeouts to prevent the "Stuck" feeling
   static const Duration apiTimeout = Duration(seconds: 15);
@@ -17,5 +24,16 @@ class AppConstants {
   static const String storageKeyLanguage = 'language';
   static const String storageKeyOnboardingSeen = 'onboarding_seen';
 
-  static const String sarvamApiKey = 'sk_9b2kx6dd_mxkbQZedrPnA0SN4dlXc60DD';
+  // OTP delivery channel. 'email' is the temporary channel while Exotel SMS
+  // is blocked on DLT approval; flip to 'sms' when DLT clears to use the
+  // phone OTP endpoints again. Must match backend AUTH_OTP_CHANNEL.
+  static const String otpChannel = 'email';
+
+  // Endpoints for the active OTP channel.
+  static String get otpRequestEndpoint =>
+      otpChannel == 'sms' ? 'auth/phone/send-otp/' : 'auth/otp/email/request/';
+
+  static String get otpVerifyEndpoint =>
+      otpChannel == 'sms' ? 'auth/phone/verify/' : 'auth/otp/email/verify/';
+
 }

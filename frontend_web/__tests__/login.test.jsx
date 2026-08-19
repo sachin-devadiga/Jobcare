@@ -79,7 +79,7 @@ describe('LoginPage', () => {
       loading: true,
     });
     render(<LoginPage />);
-    expect(screen.getByText('Sign In')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Sign In' })).toBeDisabled();
   });
 
   test('toggles password visibility', () => {

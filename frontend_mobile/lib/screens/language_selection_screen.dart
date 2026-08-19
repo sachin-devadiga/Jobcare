@@ -7,7 +7,9 @@ import '../theme/app_colors.dart';
 import '../widgets/voice_ring.dart';
 
 class LanguageSelectionScreen extends ConsumerWidget {
-  const LanguageSelectionScreen({super.key});
+  const LanguageSelectionScreen({super.key, this.returnToSettings = false});
+
+  final bool returnToSettings;
 
   static const List<_Language> interfaceLanguages = [
     _Language('hi', 'हिन्दी (Hindi)'),
@@ -50,11 +52,17 @@ class LanguageSelectionScreen extends ConsumerWidget {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: GestureDetector(
-                        onTap: () {
-                          ref.read(languageProvider.notifier).setLanguage(lang.code);
-                          Future.delayed(const Duration(milliseconds: 300), () {
+                        onTap: () async {
+                          await ref
+                              .read(languageProvider.notifier)
+                              .setLanguage(lang.code);
+                          if (!context.mounted) return;
+
+                          if (returnToSettings) {
+                            context.pop();
+                          } else {
                             context.go(RouteNames.login);
-                          });
+                          }
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),

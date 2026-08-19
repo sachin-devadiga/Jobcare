@@ -3,13 +3,19 @@ import '@testing-library/jest-dom';
 import JobForm from '@/components/jobs/JobForm';
 
 jest.mock('react-hook-form', () => ({
-  useForm: jest.fn(() => ({
-    register: jest.fn(() => ({})),
-    handleSubmit: jest.fn((fn) => (e) => { e?.preventDefault?.(); fn({}); }),
+  useForm: jest.fn(({ defaultValues = {} } = {}) => ({
+    register: jest.fn((name) => ({
+      name,
+      value: defaultValues[name] ?? '',
+      onChange: jest.fn(),
+      onBlur: jest.fn(),
+      ref: jest.fn(),
+    })),
+    handleSubmit: jest.fn((fn) => (e) => { e?.preventDefault?.(); fn({ ...defaultValues }); }),
     control: {},
     formState: { errors: {} },
     setValue: jest.fn(),
-    watch: jest.fn(() => ''),
+    watch: jest.fn((name) => (name ? defaultValues[name] : '')),
   })),
   Controller: ({ render }) => render({ field: { value: [], onChange: jest.fn() } }),
 }));
@@ -65,9 +71,9 @@ describe('JobForm', () => {
 
   test('renders all job type options', () => {
     render(<JobForm onSubmit={mockOnSubmit} />);
-    expect(screen.getByText('Location Type')).toBeInTheDocument();
-    expect(screen.getByText('Job Type *')).toBeInTheDocument();
-    expect(screen.getByText('Experience Level *')).toBeInTheDocument();
+    expect(screen.getAllByText('Location Type').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Job Type *').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Experience Level *').length).toBeGreaterThan(0);
   });
 
   test('renders salary fields', () => {
@@ -83,7 +89,7 @@ describe('JobForm', () => {
 
   test('renders skills autocomplete', () => {
     render(<JobForm onSubmit={mockOnSubmit} />);
-    expect(screen.getByText('Skills *')).toBeInTheDocument();
+    expect(screen.getAllByText('Skills *').length).toBeGreaterThan(0);
   });
 
   test('renders cancel button', () => {

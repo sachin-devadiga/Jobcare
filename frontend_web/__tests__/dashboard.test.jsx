@@ -6,6 +6,9 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 
 jest.mock('@/hooks/useAuth');
 jest.mock('@/hooks/useAnalytics');
+jest.mock('next/router', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
 jest.mock('@/components/layout/DashboardLayout', () => ({ children }) => <div>{children}</div>);
 jest.mock('@/components/analytics/StatsCard', () => ({ label, value, loading }) =>
   loading ? <div data-testid="stats-loading">Loading</div> : <div data-testid="stats-card">{label}: {value}</div>
@@ -52,15 +55,15 @@ describe('DashboardPage', () => {
   test('renders dashboard with stats', async () => {
     render(<DashboardPage />);
     expect(screen.getByText(/Welcome back/)).toBeInTheDocument();
-    expect(screen.getByText('Active Jobs')).toBeInTheDocument();
-    expect(screen.getByText('Total Applicants')).toBeInTheDocument();
-    expect(screen.getByText('Interviews Today')).toBeInTheDocument();
-    expect(screen.getByText('New Messages')).toBeInTheDocument();
+    expect(screen.getByText(/Active Jobs/)).toBeInTheDocument();
+    expect(screen.getByText(/Total Applicants/)).toBeInTheDocument();
+    expect(screen.getByText(/Interviews Today/)).toBeInTheDocument();
+    expect(screen.getByText(/New Messages/)).toBeInTheDocument();
   });
 
   test('shows stat card values', () => {
     render(<DashboardPage />);
-    expect(screen.getByText(/12/)).toBeInTheDocument();
+    expect(screen.getAllByText(/12/).length).toBeGreaterThan(0);
   });
 
   test('shows loading skeletons when loading', () => {

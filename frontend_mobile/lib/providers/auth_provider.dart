@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
@@ -63,32 +65,51 @@ class AuthNotifier extends StateNotifier<AuthState> {
   @override
   set state(AuthState value) {
     super.state = value;
+    // The router instance is stable and listens to this notifier for redirect
+    // updates. Notify it in the same state transition so navigation is not
+    // deferred beyond the lifecycle of the current route.
     _listenable.notifyListeners();
   }
 
-  Future<void> sendOtp(String phone) async {
-    debugPrint('AUTH_ACTION: sendOtp called for $phone');
-    state = state.copyWith(isLoginLoading: true, failure: null, otpSent: false);
-    
-    // MAGIC TEST NUMBER: Use 9876543000 to bypass server
-    if (phone.endsWith('000') || phone == '9876543210') {
-      debugPrint('AUTH_ACTION: Test Number Detected -> Bypassing Backend');
-      await Future.delayed(const Duration(milliseconds: 500));
-      state = state.copyWith(isLoginLoading: false, otpSent: true, failure: null);
-      return;
+  Future<void> checkAuth() async {
+    final isLoggedIn = await _authRepository.isLoggedIn();
+    if (isLoggedIn) {
+      try {
+        final user = await _authRepository.getCurrentUser();
+        state = state.copyWith(status: AuthStatus.authenticated, user: user);
+      } catch (_) {
+        state = state.copyWith(status: AuthStatus.unauthenticated);
+      }
+    } else {
+      state = state.copyWith(status: AuthStatus.unauthenticated);
     }
+  }
 
+  Future<void> sendOtp(String phone, {String? email}) async {
+    state = state.copyWith(isLoginLoading: true, failure: null, otpSent: false);
     try {
-      // 5-second timeout for rapid feedback
-      await _authRepository.sendOtp(phone).timeout(const Duration(seconds: 5));
-      debugPrint('AUTH_ACTION: OTP Request Success');
-      state = state.copyWith(isLoginLoading: false, otpSent: true, failure: null);
-    } catch (e) {
-      debugPrint('AUTH_ACTION: OTP Request Failed -> $e');
+      await _authRepository.sendOtp(phone, email: email);
+      state = state.copyWith(isLoginLoading: false, otpSent: true);
+    } on Failure catch (error) {
       state = state.copyWith(
-        isLoginLoading: false, 
+        isLoginLoading: false,
+        failure: Failure(
+          message: kDebugMode
+              ? error.message
+              : 'Unable to send verification code. Please try again.',
+        ),
         otpSent: false,
-        failure: const Failure(message: 'Cannot reach server. Use number ending in 000 to test without backend.'),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Unexpected phone authentication error: $error\n$stackTrace');
+      state = state.copyWith(
+        isLoginLoading: false,
+        failure: Failure(
+          message: error is TimeoutException
+              ? 'Phone authentication timed out'
+              : (kDebugMode ? error.toString() : 'Unable to send verification code. Please try again.'),
+        ),
+        otpSent: false,
       );
     }
   }
@@ -97,9 +118,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoginLoading: true, failure: null);
     try {
       final user = await _authRepository.loginWithEmail(email, password);
-      state = state.copyWith(status: AuthStatus.authenticated, user: user, isLoginLoading: false);
+      state = state.copyWith(
+        status: AuthStatus.authenticated,
+        user: user,
+        isLoginLoading: false,
+      );
     } catch (error) {
-      state = state.copyWith(isLoginLoading: false, failure: error is Failure ? error : const Failure(message: 'Unable to sign in'));
+      state = state.copyWith(
+        isLoginLoading: false,
+        failure: error is Failure
+            ? error
+            : const Failure(message: 'Unable to sign in'),
+      );
     }
   }
 
@@ -107,50 +137,100 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoginLoading: true, failure: null);
     try {
       final user = await _authRepository.loginWithPhone(phone, password);
-      state = state.copyWith(status: AuthStatus.authenticated, user: user, isLoginLoading: false);
+      state = state.copyWith(
+        status: AuthStatus.authenticated,
+        user: user,
+        isLoginLoading: false,
+      );
     } catch (error) {
-      state = state.copyWith(isLoginLoading: false, failure: error is Failure ? error : const Failure(message: 'Unable to sign in'));
+      state = state.copyWith(
+        isLoginLoading: false,
+        failure: error is Failure
+            ? error
+            : const Failure(message: 'Unable to sign in'),
+      );
     }
   }
 
-  Future<void> register({required String name, required String email, required String phone, required String password, required String role}) async {
+  Future<void> register({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+    required String role,
+  }) async {
     state = state.copyWith(isRegisterLoading: true, failure: null);
     try {
-      final user = await _authRepository.register(name: name, email: email, phone: phone, password: password, role: role);
-      state = state.copyWith(status: AuthStatus.authenticated, user: user, isRegisterLoading: false);
+      final user = await _authRepository.register(
+        name: name,
+        email: email,
+        phone: phone,
+        password: password,
+        role: role,
+      );
+      state = state.copyWith(
+        status: AuthStatus.authenticated,
+        user: user,
+        isRegisterLoading: false,
+      );
     } catch (error) {
-      state = state.copyWith(isRegisterLoading: false, failure: error is Failure ? error : const Failure(message: 'Unable to register'));
+      state = state.copyWith(
+        isRegisterLoading: false,
+        failure: error is Failure
+            ? error
+            : const Failure(message: 'Unable to register'),
+      );
+    }
+  }
+
+  Future<void> forgotPassword(String email) async {
+    state = state.copyWith(isLoginLoading: true, failure: null);
+    try {
+      await _authRepository.forgotPassword(email);
+      state = state.copyWith(isLoginLoading: false);
+    } catch (error) {
+      state = state.copyWith(
+        isLoginLoading: false,
+        failure: error is Failure
+            ? error
+            : const Failure(message: 'Unable to send reset code'),
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String password,
+  }) async {
+    state = state.copyWith(isLoginLoading: true, failure: null);
+    try {
+      await _authRepository.resetPassword(email: email, otp: otp, password: password);
+      state = state.copyWith(isLoginLoading: false);
+    } catch (error) {
+      state = state.copyWith(
+        isLoginLoading: false,
+        failure: error is Failure
+            ? error
+            : const Failure(message: 'Unable to reset password'),
+      );
+      rethrow;
     }
   }
 
   Future<void> verifyOtp(String phone, String otp) async {
-    debugPrint('AUTH_ACTION: verifyOtp called for $otp');
     state = state.copyWith(isLoginLoading: true, failure: null);
-    
-    // Master Test OTP: 123456 or 000000
-    if (phone.endsWith('000') || phone == '9876543210') {
-      if (otp == '123456' || otp == '000000') {
-        final now = DateTime.now();
-        final testUser = UserModel(
-          id: 'test_id',
-          email: 'worker@jobcare.voice',
-          name: 'Test Worker',
-          phone: phone,
-          role: UserRole.employee,
-          createdAt: now,
-          updatedAt: now,
-        );
-        state = state.copyWith(status: AuthStatus.authenticated, user: testUser, isLoginLoading: false, isNewUser: true, otpSent: false);
-        return;
-      }
-    }
-
     try {
       final user = await _authRepository.verifyOtp(phone, otp);
-      final bool isNew = user.name.contains('User') || user.name == 'Test Worker';
-      state = state.copyWith(status: AuthStatus.authenticated, user: user, isLoginLoading: false, isNewUser: isNew, otpSent: false);
+      state = state.copyWith(
+        status: AuthStatus.authenticated,
+        user: user,
+        isLoginLoading: false,
+        isNewUser: user.name.trim().isEmpty,
+      );
     } catch (e) {
-      state = state.copyWith(isLoginLoading: false, failure: const Failure(message: 'Invalid OTP. Try 123456 for testing.'));
+      state = state.copyWith(isLoginLoading: false, failure: const Failure(message: 'Invalid OTP'));
     }
   }
 
@@ -159,42 +239,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> updateName(String name) async {
-    if (state.user == null) return;
-    state = state.copyWith(
-      user: state.user!.copyWith(name: name),
-      isNewUser: false,
-      isLoginLoading: false,
-    );
-  }
-
-  void checkAuth() {
-    state = state.copyWith(status: AuthStatus.unauthenticated);
+    state = state.copyWith(user: state.user?.copyWith(name: name), isNewUser: false);
   }
 
   Future<void> logout() async {
     try {
       await _authRepository.logout();
     } catch (_) {
-      // Clear local state even if the network logout request fails.
+      // Clear the local state even if the server session has already expired.
     }
     state = const AuthState(status: AuthStatus.unauthenticated);
-  }
-
-  void skipLogin() {
-    final now = DateTime.now();
-    final guestUser = UserModel(
-      id: 'guest',
-      email: 'guest@jobcare.voice',
-      name: 'Guest User',
-      phone: '0000000000',
-      role: UserRole.employee,
-      createdAt: now,
-      updatedAt: now,
-    );
-    state = state.copyWith(status: AuthStatus.authenticated, user: guestUser, otpSent: false, isNewUser: false);
   }
 
   void clearFailure() {
     state = state.copyWith(failure: null);
   }
+
 }

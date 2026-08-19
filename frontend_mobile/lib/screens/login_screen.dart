@@ -17,12 +17,14 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _otpController = TextEditingController();
   final _nameController = TextEditingController();
   
   @override
   void dispose() {
     _phoneController.dispose();
+    _emailController.dispose();
     _otpController.dispose();
     _nameController.dispose();
     super.dispose();
@@ -37,9 +39,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
       return;
     }
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid email address')),
+      );
+      return;
+    }
     FocusScope.of(context).unfocus();
     final notifier = ref.read(authProvider.notifier);
-    await notifier.sendOtp(phone);
+    await notifier.sendOtp(phone, email: email);
     if (!mounted) return;
     final s = ref.read(authProvider);
     if (s.failure != null) {
@@ -100,7 +110,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Text(
               authState.isNewUser
                   ? 'Complete your profile to find jobs'
-                  : (authState.otpSent ? 'OTP sent to +91 ${_phoneController.text}' : AppStrings.get('find_job_today', lang)),
+                  : (authState.otpSent ? '${AppStrings.get('otp_description', lang)} ${_emailController.text}' : AppStrings.get('find_job_today', lang)),
               style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 40),
@@ -147,6 +157,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           decoration: InputDecoration(
             hintText: '98765 43210',
             prefixIcon: const Padding(padding: EdgeInsets.all(14), child: Text('+91 ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary))),
+            filled: true,
+            fillColor: AppColors.surface,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(AppStrings.get('email_address', lang), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          autocorrect: false,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            hintText: 'you@example.com',
+            prefixIcon: const Padding(padding: EdgeInsets.all(14), child: Icon(Icons.mail_outline, color: AppColors.primary)),
             filled: true,
             fillColor: AppColors.surface,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),

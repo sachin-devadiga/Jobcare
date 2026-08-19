@@ -1,5 +1,6 @@
 import re
 import logging
+import os
 import magic
 from urllib.parse import urlparse
 from django.conf import settings
@@ -237,6 +238,3 @@ class FileUploadValidationMiddleware:
                         status=400,
                     )
         return self.get_response(request)
-
-
-import os

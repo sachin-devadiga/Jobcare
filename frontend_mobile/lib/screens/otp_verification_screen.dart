@@ -66,8 +66,9 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         await ref.read(authProvider.notifier).verifyOtp(widget.phone!, otp);
       }
 
+      if (!mounted) return;
       final authState = ref.read(authProvider);
-      if (authState.status == AuthStatus.authenticated && mounted) {
+      if (authState.status == AuthStatus.authenticated) {
         context.go(RouteNames.home);
       }
     } catch (_) {} finally {

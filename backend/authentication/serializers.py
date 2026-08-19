@@ -211,3 +211,59 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['role'] = user.role
         token['email'] = user.email
         return token
+
+
+class SendPhoneOTPSerializer(serializers.Serializer):
+    phone = serializers.CharField(required=True)
+
+    def validate_phone(self, value):
+        return validate_phone_number(value)
+
+
+class EmailOTPRequestSerializer(serializers.Serializer):
+    phone = serializers.CharField(required=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+
+    def validate_phone(self, value):
+        return validate_phone_number(value)
+
+    def validate_email(self, value):
+        return (value or '').lower().strip()
+
+
+class EmailOTPVerifySerializer(serializers.Serializer):
+    phone = serializers.CharField(required=True)
+    otp = serializers.CharField(min_length=6, max_length=6)
+    name = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    role = serializers.ChoiceField(
+        choices=['employee', 'employer'],
+        required=False,
+        default='employee',
+    )
+
+    def validate_phone(self, value):
+        return validate_phone_number(value)
+
+    def validate_otp(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError(_('OTP must be numeric'))
+        return value
+
+
+class VerifyPhoneOTPSerializer(serializers.Serializer):
+    phone = serializers.CharField(required=True)
+    otp = serializers.CharField(min_length=6, max_length=6)
+    name = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    role = serializers.ChoiceField(
+        choices=['employee', 'employer'],
+        required=False,
+        default='employee',
+    )
+
+    def validate_phone(self, value):
+        return validate_phone_number(value)
+
+    def validate_otp(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError(_('OTP must be numeric'))
+        return value

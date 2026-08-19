@@ -21,6 +21,12 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'user', 'profile_completion_score', 'is_profile_complete', 'created_at', 'updated_at', 'aadhaar_verified']
+        extra_kwargs = {
+            # A profile can be created from any section (skills, education,
+            # experience); use the authenticated user's name when the full
+            # profile form has not been completed yet.
+            'full_name': {'required': False, 'allow_blank': True},
+        }
 
     def validate_phone(self, value):
         if value and len(value) < 10:
@@ -38,8 +44,20 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        validated_data['user'] = self.context['request'].user
+        user = self.context['request'].user
+        validated_data['user'] = user
+        validated_data.setdefault('full_name', user.name or user.email)
         return super().create(validated_data)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Compatibility keys let older mobile clients consume the canonical API.
+        data['user_id'] = data['user']
+        data['profile_image'] = data['avatar']
+        data['preferred_job_type'] = (data['preferred_job_categories'] or [None])[0]
+        data['is_available'] = data['availability'] != EmployeeProfile.Availability.NOT_AVAILABLE
+        data['notice_period'] = 'notice_period' if data['availability'] == EmployeeProfile.Availability.NOTICE_PERIOD else None
+        return data
 
 
 class EmployeeProfileListSerializer(serializers.ModelSerializer):

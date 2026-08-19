@@ -31,14 +31,20 @@ class JobRepository(BaseRepository):
         return self.filter(title__icontains=query)
 
     def search(self, query):
-        return self.filter(
-            models.Q(title__icontains=query) |
-            models.Q(description__icontains=query) |
-            models.Q(company__name__icontains=query) |
-            models.Q(city__icontains=query) |
-            models.Q(state__icontains=query) |
-            models.Q(skills_required__contains=[query])
-        )
+        terms = [t for t in query.split() if t]
+        if not terms:
+            return self.model.objects.none()
+        combined = models.Q()
+        for term in terms:
+            combined |= (
+                models.Q(title__icontains=term) |
+                models.Q(description__icontains=term) |
+                models.Q(company__name__icontains=term) |
+                models.Q(city__icontains=term) |
+                models.Q(state__icontains=term) |
+                models.Q(skills_required__contains=[term])
+            )
+        return self.filter(combined)
 
     def filter_by_salary_range(self, min_salary, max_salary):
         return self.filter(salary_min__gte=min_salary, salary_max__lte=max_salary)

@@ -317,7 +317,7 @@ class _ConversationTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            conversation.lastMessageTime.relative,
+            Formatters.relativeTime(conversation.lastMessageTime),
             style: TextStyle(
               fontSize: 11,
               color: conversation.unreadCount > 0

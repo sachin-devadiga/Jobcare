@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, OpenApiResponse
+import os
+import uuid
 
 from authentication.permissions import IsEmployee, IsOwnerOrAdmin
 from .models import EmployeeProfile
@@ -69,10 +71,11 @@ class EmployeeProfileView(APIView):
     def patch(self, request):
         profile = repo.get_by_user(user_id=request.user.id)
         if not profile:
-            return Response(
-                {'success': False, 'message': 'Profile not found'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            serializer = EmployeeProfileSerializer(data=request.data, context={'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                return Response({'success': True, 'message': 'Profile created', 'data': serializer.data}, status=status.HTTP_201_CREATED)
+            return Response({'success': False, 'message': 'Validation failed', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         serializer = EmployeeProfileSerializer(
             profile,
             data=request.data,
@@ -104,6 +107,70 @@ class EmployeeProfileView(APIView):
         profile.delete()
         return Response(
             {'success': True, 'message': 'Profile deleted'},
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(tags=['Users'])
+class ProfileAvatarUploadView(APIView):
+    permission_classes = [IsAuthenticated, IsEmployee]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        avatar = request.FILES.get('avatar') or request.FILES.get('image')
+        if not avatar:
+            return Response({'success': False, 'message': 'An avatar image is required'}, status=status.HTTP_400_BAD_REQUEST)
+        profile = repo.get_by_user(user_id=request.user.id)
+        if not profile:
+            return Response({'success': False, 'message': 'Create your profile before uploading an avatar'}, status=status.HTTP_404_NOT_FOUND)
+        profile.avatar = avatar
+        profile.save()
+        return Response({'success': True, 'data': EmployeeProfileSerializer(profile, context={'request': request}).data})
+
+
+@extend_schema(tags=['Users'])
+class ProfileVoiceResumeUploadView(APIView):
+    permission_classes = [IsAuthenticated, IsEmployee]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        from django.core.files.storage import default_storage
+        audio = request.FILES.get('voice_resume')
+        resume = request.FILES.get('resume') or request.FILES.get('file')
+        if not audio and not resume:
+            return Response(
+                {'success': False, 'message': 'A voice resume or resume file is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        profile = repo.get_by_user(user_id=request.user.id)
+        if not profile:
+            profile_serializer = EmployeeProfileSerializer(data={}, context={'request': request})
+            profile_serializer.is_valid(raise_exception=True)
+            profile = profile_serializer.save()
+        if audio:
+            ext = os.path.splitext(audio.name)[1] or '.m4a'
+            path = default_storage.save(f'voice_resumes/{uuid.uuid4()}{ext}', audio)
+            url = request.build_absolute_uri(default_storage.url(path))
+            profile.voice_resume_url = url
+        if resume:
+            ext = os.path.splitext(resume.name)[1] or '.pdf'
+            path = default_storage.save(f'resumes/{uuid.uuid4()}{ext}', resume)
+            url = request.build_absolute_uri(default_storage.url(path))
+            profile.resume_url = url
+        profile.save(update_fields=['voice_resume_url', 'resume_url'])
+        return Response(
+            {'success': True, 'data': {'voice_resume_url': profile.voice_resume_url, 'resume_url': profile.resume_url}},
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request):
+        profile = repo.get_by_user(user_id=request.user.id)
+        if profile:
+            profile.voice_resume_url = ''
+            profile.resume_url = ''
+            profile.save(update_fields=['voice_resume_url', 'resume_url'])
+        return Response(
+            {'success': True, 'message': 'Resumes deleted'},
             status=status.HTTP_200_OK,
         )
 

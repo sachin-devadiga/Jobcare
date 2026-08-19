@@ -1,7 +1,9 @@
+import hashlib
 import json
 import logging
 import requests
 import time
+from urllib.parse import urlparse
 from typing import Optional, Dict, Any, List
 from django.conf import settings
 from django.core.cache import cache
@@ -36,7 +38,6 @@ class SarvamAIService:
         session = requests.Session()
         session.headers.update({
             'api-subscription-key': self.api_key,
-            'Content-Type': 'application/json',
             'User-Agent': 'JobCareVoice/1.0',
         })
         adapter = requests.adapters.HTTPAdapter(
@@ -52,8 +53,21 @@ class SarvamAIService:
         lang = language.lower()[:2]
         return lang if lang in self.SUPPORTED_LANGUAGES else 'hi'
 
+    def _language_code(self, language: str) -> str:
+        """Return the BCP-47 language code required by current Sarvam APIs."""
+        codes = {
+            'en': 'en-IN', 'hi': 'hi-IN', 'kn': 'kn-IN',
+            'ta': 'ta-IN', 'te': 'te-IN', 'ml': 'ml-IN',
+            'mr': 'mr-IN', 'gu': 'gu-IN', 'bn': 'bn-IN',
+            'or': 'od-IN', 'pa': 'pa-IN',
+        }
+        return codes[self._normalize_language(language)]
+
     def _build_cache_key(self, prefix: str, *args) -> str:
-        return f'sarvam:{prefix}:{":".join(str(a) for a in args)}'
+        raw = f'sarvam:{prefix}:{":".join(str(a) for a in args)}'
+        if len(raw) > 200 or ' ' in raw:
+            return f'sarvam:{prefix}:{hashlib.md5(raw.encode()).hexdigest()}'
+        return raw
 
     @retry(
         stop=stop_after_attempt(MAX_RETRIES),
@@ -65,26 +79,59 @@ class SarvamAIService:
     )
     def speech_to_text(
         self,
-        audio_url: str,
+        audio_url: str = '',
+        audio_file=None,
         language: str = 'hi',
         with_diarization: bool = False,
     ) -> Dict[str, Any]:
         lang = self._normalize_language(language)
-        cache_key = self._build_cache_key('stt', audio_url, lang)
+        if not self.api_key:
+            raise SarvamAIServiceUnavailableError('Sarvam AI is not configured')
+        source_name = getattr(audio_file, 'name', '') or audio_url
+        # Key the cache by audio CONTENT, not the uploaded filename: mobile
+        # clients always send the same generic name ('audio.m4a'), so a
+        # filename-based key would make every new recording return the first
+        # result (often an empty transcript) from cache.
+        try:
+            if audio_file is not None:
+                audio_file.seek(0)
+                digest = hashlib.md5(audio_file.read()).hexdigest()
+                audio_file.seek(0)
+            else:
+                digest = audio_url
+        except Exception:
+            digest = source_name
+        cache_key = self._build_cache_key('stt', digest, lang)
         cached = cache.get(cache_key)
         if cached:
             logger.info(f'SarvamAI STT cache hit for {audio_url}')
             return cached
 
         try:
-            url = f'{self.base_url}/v1/speech-to-text'
+            url = f'{self.base_url.rstrip("/")}/speech-to-text'
+            if audio_file is not None:
+                filename = getattr(audio_file, 'name', 'audio.wav')
+                content_type = getattr(audio_file, 'content_type', None) or 'application/octet-stream'
+                try:
+                    audio_file.seek(0)
+                except (AttributeError, OSError, ValueError):
+                    pass
+                files = {'file': (filename, audio_file, content_type)}
+            else:
+                parsed = urlparse(audio_url)
+                allowed_hosts = set(settings.EXOTEL_RECORDING_ALLOWED_HOSTS)
+                if parsed.scheme != 'https' or not parsed.hostname or parsed.hostname not in allowed_hosts:
+                    raise SarvamAIError('Audio URL is not an approved Exotel recording URL')
+                source = requests.get(audio_url, timeout=30)
+                source.raise_for_status()
+                files = {'file': ('exotel-recording.wav', source.content, source.headers.get('Content-Type', 'audio/wav'))}
             payload = {
-                'audio_url': audio_url,
-                'language': lang,
-                'with_diarization': with_diarization,
+                'model': settings.SARVAM_STT_MODEL,
+                'language_code': self._language_code(lang),
+                'mode': 'transcribe',
             }
             start_time = time.time()
-            response = self._session.post(url, json=payload, timeout=self.STT_TIMEOUT)
+            response = self._session.post(url, data=payload, files=files, timeout=self.STT_TIMEOUT)
             processing_time = int((time.time() - start_time) * 1000)
 
             if response.status_code == 200:
@@ -92,8 +139,8 @@ class SarvamAIService:
                 result = {
                     'success': True,
                     'text': data.get('transcript', ''),
-                    'language': data.get('language', lang),
-                    'confidence': data.get('confidence', None),
+                    'language': data.get('language_code', self._language_code(lang)),
+                    'confidence': data.get('language_probability'),
                     'processing_time_ms': processing_time,
                     'source': 'api',
                 }
@@ -102,26 +149,30 @@ class SarvamAIService:
                 return result
             elif response.status_code == 429:
                 logger.warning('SarvamAI STT rate limited, using fallback')
-                return self._stt_fallback(audio_url, lang)
+                return self._stt_fallback(lang)
             elif response.status_code >= 500:
                 raise SarvamAIServiceUnavailableError(f'SarvamAI server error: {response.status_code}')
             else:
                 logger.error(f'SarvamAI STT error: {response.status_code} - {response.text[:200]}')
-                return self._stt_fallback(audio_url, lang)
+                return self._stt_fallback(lang)
         except requests.exceptions.Timeout:
             logger.error(f'SarvamAI STT request timed out after {self.STT_TIMEOUT}s')
-            return self._stt_fallback(audio_url, lang)
+            return self._stt_fallback(lang)
         except requests.exceptions.ConnectionError as e:
             logger.error(f'SarvamAI STT connection error: {str(e)}')
-            return self._stt_fallback(audio_url, lang)
+            return self._stt_fallback(lang)
         except Exception as e:
             logger.error(f'SarvamAI STT error: {str(e)}', exc_info=True)
-            return self._stt_fallback(audio_url, lang)
+            return self._stt_fallback(lang)
 
-    def _stt_fallback(self, audio_url: str, language: str) -> Dict[str, Any]:
-        logger.info('Using STT fallback (basic transcription)')
+    def _stt_fallback(self, language: str, legacy_language: Optional[str] = None) -> Dict[str, Any]:
+        # Preserve the former (audio_url, language) helper signature without
+        # ever using an untrusted URL.
+        if legacy_language is not None:
+            language = legacy_language
+        logger.info('Sarvam STT is unavailable')
         return {
-            'success': True,
+            'success': False,
             'text': '',
             'language': language,
             'confidence': None,
@@ -148,6 +199,8 @@ class SarvamAIService:
         loudness: float = 1.0,
     ) -> Dict[str, Any]:
         lang = self._normalize_language(language)
+        if not self.api_key:
+            raise SarvamAIServiceUnavailableError('Sarvam AI is not configured')
         cache_key = self._build_cache_key('tts', text[:50], lang, voice)
         cached = cache.get(cache_key)
         if cached:
@@ -155,14 +208,14 @@ class SarvamAIService:
             return cached
 
         try:
-            url = f'{self.base_url}/v1/text-to-speech'
+            url = f'{self.base_url.rstrip("/")}/text-to-speech'
             payload = {
                 'text': text,
-                'language': lang,
-                'voice': voice,
-                'pitch': pitch,
+                'language_code': self._language_code(lang),
+                'model': settings.SARVAM_TTS_MODEL,
+                'speaker': 'shubh' if voice in ('', 'default', 'male') else voice,
                 'pace': pace,
-                'loudness': loudness,
+                'output_audio_codec': 'mp3',
             }
             start_time = time.time()
             response = self._session.post(url, json=payload, timeout=self.TTS_TIMEOUT)
@@ -172,8 +225,8 @@ class SarvamAIService:
                 processing_time = int((time.time() - start_time) * 1000)
                 result = {
                     'success': True,
-                    'audio_url': data.get('audio_url', ''),
-                    'audio_content': data.get('audio_content', ''),
+                    'audio_url': '',
+                    'audio_content': ''.join(data.get('audios', [])),
                     'processing_time_ms': processing_time,
                     'source': 'api',
                 }
@@ -213,11 +266,11 @@ class SarvamAIService:
         target_language: str = 'en',
     ) -> Optional[str]:
         try:
-            url = f'{self.base_url}/v1/translate'
+            url = f'{self.base_url.rstrip("/")}/translate'
             payload = {
-                'text': text,
-                'source_language': self._normalize_language(source_language),
-                'target_language': self._normalize_language(target_language),
+                'input': text,
+                'source_language_code': self._language_code(self._normalize_language(source_language)),
+                'target_language_code': self._language_code(self._normalize_language(target_language)),
             }
             response = self._session.post(url, json=payload, timeout=self.TRANSLATE_TIMEOUT)
 
@@ -225,7 +278,7 @@ class SarvamAIService:
                 data = response.json()
                 return data.get('translated_text', '')
             else:
-                logger.error(f'SarvamAI translate error: {response.status_code}')
+                logger.error(f'SarvamAI translate error: {response.status_code} - {response.text[:200]}')
                 return text
         except Exception as e:
             logger.error(f'SarvamAI translate error: {str(e)}')

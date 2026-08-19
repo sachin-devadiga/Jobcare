@@ -42,7 +42,7 @@ describe('StatsCard', () => {
 
   test('renders with prefix', () => {
     render(<StatsCard {...defaultProps} prefix="$" value={1000} />);
-    expect(screen.getByText('$1K')).toBeInTheDocument();
+    expect(screen.getByText('$1.0K')).toBeInTheDocument();
   });
 
   test('renders loading skeleton', () => {

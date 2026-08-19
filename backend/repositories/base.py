@@ -26,8 +26,8 @@ class BaseRepository(Generic[T]):
         except self.model.DoesNotExist:
             return None
 
-    def filter(self, **kwargs) -> models.QuerySet:
-        return self.model.objects.filter(**kwargs)
+    def filter(self, *args, **kwargs) -> models.QuerySet:
+        return self.model.objects.filter(*args, **kwargs)
 
     def exclude(self, **kwargs) -> models.QuerySet:
         return self.model.objects.exclude(**kwargs)

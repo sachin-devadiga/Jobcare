@@ -142,6 +142,7 @@ export default function LoginPage() {
               variant="contained"
               type="submit"
               disabled={loading}
+              aria-label="Sign In"
               sx={{ py: 1.5, borderRadius: 3, fontSize: '1rem', mb: 2 }}
             >
               {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Sign In'}

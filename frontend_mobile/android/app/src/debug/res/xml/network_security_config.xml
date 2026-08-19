@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Debug builds override the main network security config (debug res
+         wins over main res at build time). Allow cleartext to any host so
+         development against a LAN backend (physical phone) just works. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

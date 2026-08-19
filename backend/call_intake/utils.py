@@ -29,12 +29,19 @@ def generate_intake_pdf(session):
     styles = getSampleStyleSheet()
 
     # Register NotoSans for Multilingual support
-    font_path = os.path.join(settings.BASE_DIR, '..', 'frontend_mobile', 'assets', 'fonts', 'NotoSans-Regular.ttf')
-    try:
-        pdfmetrics.registerFont(TTFont('NotoSans', font_path))
-        font_name = 'NotoSans'
-    except Exception:
-        font_name = 'Helvetica'
+    font_paths = [
+        settings.BASE_DIR / 'static' / 'fonts' / 'NotoSans-Regular.ttf',
+        settings.BASE_DIR.parent / 'frontend_mobile' / 'assets' / 'fonts' / 'NotoSans-Regular.ttf',
+    ]
+    font_name = 'Helvetica'
+    for fp in font_paths:
+        if os.path.exists(fp):
+            try:
+                pdfmetrics.registerFont(TTFont('NotoSans', str(fp)))
+                font_name = 'NotoSans'
+                break
+            except Exception:
+                continue
 
     # --- Styles ---
     title_style = ParagraphStyle(

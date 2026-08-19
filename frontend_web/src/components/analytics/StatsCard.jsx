@@ -16,6 +16,7 @@ function useAnimatedCounter(target, duration = 1000) {
   useEffect(() => {
     const targetNum = typeof target === 'string' ? parseFloat(target.replace(/[^0-9.-]/g, '')) : Number(target) || 0;
     if (targetNum === 0) { setCount(0); return; }
+    if (typeof requestAnimationFrame !== 'function' || !document.hasFocus()) { setCount(targetNum); return; }
     const startTime = performance.now();
     const startValue = 0;
 

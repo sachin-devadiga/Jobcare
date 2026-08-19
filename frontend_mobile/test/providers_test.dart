@@ -138,7 +138,7 @@ class FakeProfileRepository extends ProfileRepository {
   final Map<String, dynamic> _stub;
   FakeProfileRepository(this._stub) : super(FakeProfileService());
   @override Future<EmployeeProfileModel> getEmployeeProfile() async => (_stub['getEmployeeProfile'] as Future<EmployeeProfileModel> Function()?)?.call() ?? (throw const Failure(message: 'unexpected'));
-  @override Future<EmployeeProfileModel> updateEmployeeProfile({String? fullName, String? phone, String? bio, String? dateOfBirth, String? gender, String? address, String? city, String? state, String? pincode, double? latitude, double? longitude, List<String>? skills, String? expectedSalary, String? preferredJobType, List<String>? preferredLocations, bool? isAvailable, String? noticePeriod}) async => (_stub['updateEmployeeProfile'] as Future<EmployeeProfileModel> Function({String? fullName})?)?.call(fullName: fullName) ?? (throw const Failure(message: 'unexpected'));
+  @override Future<EmployeeProfileModel> updateEmployeeProfile({String? fullName, String? phone, String? bio, String? dateOfBirth, String? gender, String? address, String? city, String? state, String? pincode, double? latitude, double? longitude, List<String>? skills, List<Map<String, dynamic>>? education, List<Map<String, dynamic>>? experiences, String? expectedSalary, String? preferredJobType, List<String>? preferredLocations, bool? isAvailable, String? noticePeriod}) async => (_stub['updateEmployeeProfile'] as Future<EmployeeProfileModel> Function({String? fullName})?)?.call(fullName: fullName) ?? (throw const Failure(message: 'unexpected'));
 }
 
 class FakeNotificationRepository extends NotificationRepository {

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import '../lib/models/application_model.dart';
 import '../lib/models/company_model.dart';
 import '../lib/models/job_model.dart';
@@ -14,8 +12,6 @@ import '../lib/widgets/rating_bar_widget.dart';
 import '../lib/widgets/section_header.dart';
 import '../lib/widgets/skill_chip.dart';
 import '../lib/widgets/status_badge.dart';
-import '../lib/models/job_model.dart';
-import '../lib/models/company_model.dart';
 
 final DateTime now = DateTime.now();
 

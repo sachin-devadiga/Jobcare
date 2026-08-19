@@ -20,6 +20,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _otpController = TextEditingController();
   bool _otpSent = false;
   bool _isSendingOtp = false;
@@ -28,17 +29,28 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _emailController.dispose();
     _otpController.dispose();
     super.dispose();
   }
 
-  void _sendOtp() {
+  Future<void> _sendOtp() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSendingOtp = true);
-    ref.read(authProvider.notifier).sendOtp(_phoneController.text.trim());
+    final notifier = ref.read(authProvider.notifier);
+    await notifier.sendOtp(_phoneController.text.trim(), email: _emailController.text.trim());
+    if (!mounted) return;
     setState(() {
       _isSendingOtp = false;
-      _otpSent = true;
+      final state = ref.read(authProvider);
+      if (state.failure != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(state.failure!.message), backgroundColor: Colors.red),
+        );
+        _otpSent = false;
+      } else {
+        _otpSent = true;
+      }
     });
   }
 
@@ -108,6 +120,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           keyboardType: TextInputType.phone,
           decoration: _inputDecoration('98765 43210', prefix: '+91 '),
           validator: (v) => v!.length < 10 ? 'Invalid' : null,
+        ),
+        const SizedBox(height: 20),
+        _buildLabel(AppStrings.get('email_address', lang)),
+        TextFormField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          autocorrect: false,
+          decoration: _inputDecoration('you@example.com'),
+          validator: (v) => (v == null || v.isEmpty || !v.contains('@') || !v.contains('.'))
+              ? 'Enter a valid email address'
+              : null,
         ),
         const SizedBox(height: 40),
         SizedBox(

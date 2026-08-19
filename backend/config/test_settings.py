@@ -50,7 +50,9 @@ STORAGES = {
     },
 }
 
-MEDIA_ROOT = None
+# InMemoryStorage still needs a filesystem-shaped base location to resolve
+# upload names. It does not write files there.
+MEDIA_ROOT = str(BASE_DIR / 'test_media')
 
 RATELIMIT_ENABLE = False
 

@@ -31,7 +31,7 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.language_rounded,
             title: lang == 'hi' ? 'ऐप की भाषा' : (lang == 'kn' ? 'ಅಪ್ಲಿಕೇಶನ್ ಭಾಷೆ' : 'App Language'),
             subtitle: lang == 'hi' ? 'हिन्दी (Hindi)' : (lang == 'kn' ? 'ಕನ್ನಡ (Kannada)' : 'English'),
-            onTap: () => context.push(RouteNames.languageSelection),
+            onTap: () => context.push('${RouteNames.languageSelection}?from=settings'),
           ),
           _buildSettingTile(
             icon: Icons.notifications_active_outlined,

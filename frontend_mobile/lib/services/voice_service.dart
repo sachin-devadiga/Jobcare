@@ -2,27 +2,16 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
-import '../core/constants.dart';
 import '../core/error.dart';
 import '../models/voice_session_model.dart';
+import 'api_service.dart';
 
 class VoiceService {
-  final Dio _dio;
+  final ApiService _apiService;
   final AudioRecorder _recorder = AudioRecorder();
   String? _recordingPath;
 
-  VoiceService()
-      : _dio = Dio(
-          BaseOptions(
-            baseUrl: AppConstants.sarvamBaseUrl,
-            connectTimeout: AppConstants.apiTimeout,
-            receiveTimeout: AppConstants.apiTimeout,
-            headers: {
-              'Content-Type': 'application/json',
-              'api-subscription-key': AppConstants.sarvamApiKey,
-            },
-          ),
-        );
+  VoiceService(this._apiService);
 
   Future<bool> requestMicrophonePermission() async {
     final available = await _recorder.hasPermission();
@@ -99,17 +88,17 @@ class VoiceService {
         'language': language,
         'with_diarization': withDiarization,
       });
-      final response = await _dio.post(
-        '/speech-to-text',
+      final response = await _apiService.upload(
+        'voice/speech-to-text/',
         data: formData,
-        options: Options(
-          contentType: 'multipart/form-data',
-        ),
       );
       final data = response.data as Map<String, dynamic>;
-      return data['transcript'] as String? ?? '';
+      final payload = data['data'] as Map<String, dynamic>?;
+      return payload?['text'] as String? ?? '';
     } on DioException catch (e) {
       throw handleException(e.error);
+    } catch (e) {
+      throw handleException(e);
     }
   }
 
@@ -122,21 +111,22 @@ class VoiceService {
     double loudness = 1.0,
   }) async {
     try {
-      final response = await _dio.post(
-        '/text-to-speech',
+      final response = await _apiService.post(
+        'voice/text-to-speech/',
         data: {
           'text': text,
           'language': language,
-          'speaker': speaker,
-          'pitch': pitch,
+          'voice': speaker,
           'pace': pace,
-          'loudness': loudness,
         },
       );
       final data = response.data as Map<String, dynamic>;
-      return data['audio_url'] as String? ?? '';
+      final payload = data['data'] as Map<String, dynamic>?;
+      return payload?['audio_url'] as String? ?? '';
     } on DioException catch (e) {
       throw handleException(e.error);
+    } catch (e) {
+      throw handleException(e);
     }
   }
 
@@ -144,14 +134,18 @@ class VoiceService {
     required String transcript,
   }) async {
     try {
-      final response = await _dio.post(
-        '/voice/process-command',
-        data: {'transcript': transcript},
+      final response = await _apiService.post(
+        'voice/navigate/',
+        data: {'query': transcript},
       );
       final data = response.data as Map<String, dynamic>;
-      return VoiceCommandResult.fromJson(data);
+      return VoiceCommandResult.fromJson(
+        data['data'] as Map<String, dynamic>? ?? data,
+      );
     } on DioException catch (e) {
       throw handleException(e.error);
+    } catch (e) {
+      throw handleException(e);
     }
   }
 
@@ -161,8 +155,8 @@ class VoiceService {
     required String targetLanguage,
   }) async {
     try {
-      final response = await _dio.post(
-        '/translate',
+      final response = await _apiService.post(
+        'voice/translate/',
         data: {
           'text': text,
           'source_language': sourceLanguage,
@@ -173,13 +167,15 @@ class VoiceService {
       return data['translated_text'] as String? ?? '';
     } on DioException catch (e) {
       throw handleException(e.error);
+    } catch (e) {
+      throw handleException(e);
     }
   }
 
   Future<List<String>> detectLanguage(String text) async {
     try {
-      final response = await _dio.post(
-        '/language-detection',
+      final response = await _apiService.post(
+        'voice/language-detection/',
         data: {'text': text},
       );
       final data = response.data as Map<String, dynamic>;
@@ -187,6 +183,8 @@ class VoiceService {
       return languages.map((e) => e as String).toList();
     } on DioException catch (e) {
       throw handleException(e.error);
+    } catch (e) {
+      throw handleException(e);
     }
   }
 
@@ -195,23 +193,26 @@ class VoiceService {
     String language = 'hi',
   }) async {
     try {
-      final response = await _dio.post(
-        '/voice/search',
+      final response = await _apiService.post(
+        'voice/search/',
         data: {
           'query': query,
           'language': language,
         },
       );
       final data = response.data as Map<String, dynamic>;
-      return data['processed_query'] as String? ?? query;
+      final payload = data['data'] as Map<String, dynamic>?;
+      return payload?['query'] as String? ?? query;
     } on DioException catch (e) {
       throw handleException(e.error);
+    } catch (e) {
+      throw handleException(e);
     }
   }
 
   Future<bool> checkHealth() async {
     try {
-      final response = await _dio.get('/health');
+      final response = await _apiService.get('health/');
       return response.statusCode == 200;
     } catch (_) {
       return false;
@@ -238,6 +239,8 @@ class VoiceService {
       if (response.statusCode != 200) {
         throw const Failure(message: 'Failed to download audio file');
       }
+    } on DioException catch (e) {
+      throw handleException(e.error);
     } catch (e) {
       throw handleException(e);
     }

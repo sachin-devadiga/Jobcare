@@ -1,6 +1,7 @@
 import uuid
 import json
 from unittest.mock import patch, MagicMock
+from django.core.files.uploadedfile import SimpleUploadedFile
 from decimal import Decimal
 
 import pytest
@@ -287,9 +288,9 @@ class TestVoiceSearchFlow:
             'processing_time_ms': 100,
         }
         response = auth_client.post('/api/v1/voice/speech-to-text/', {
-            'audio_url': 'https://example.com/audio.wav',
+            'audio': SimpleUploadedFile('audio.m4a', b'audio bytes', content_type='audio/mp4'),
             'language': 'hi',
-        })
+        }, format='multipart')
         assert response.status_code == status.HTTP_200_OK
 
 

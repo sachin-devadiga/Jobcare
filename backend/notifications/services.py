@@ -10,6 +10,19 @@ from django.utils.html import strip_tags
 logger = logging.getLogger('jobcare')
 
 
+def get_firebase_app():
+    """Initialise Firebase Admin exactly once using environment-backed config."""
+    import firebase_admin
+    from firebase_admin import credentials
+
+    required = ('type', 'project_id', 'private_key', 'client_email')
+    if not all(settings.FIREBASE_CONFIG.get(key) for key in required):
+        raise RuntimeError('Firebase Admin credentials are not configured')
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(credentials.Certificate(settings.FIREBASE_CONFIG))
+    return firebase_admin.get_app()
+
+
 class FCMNotificationService:
     def __init__(self):
         self.server_key = None
@@ -17,12 +30,9 @@ class FCMNotificationService:
 
     def _initialize(self):
         try:
-            import firebase_admin
-            from firebase_admin import credentials, messaging
+            from firebase_admin import messaging
 
-            if not firebase_admin._apps:
-                cred = credentials.Certificate(settings.FIREBASE_CONFIG)
-                firebase_admin.initialize_app(cred)
+            get_firebase_app()
             self._messaging = messaging
             self._initialized = True
         except Exception as e:
@@ -123,6 +133,10 @@ class EmailNotificationService:
         plain_message: str = None,
     ) -> bool:
         try:
+            from_email = settings.DEFAULT_FROM_EMAIL
+            from_name = getattr(settings, 'EMAIL_FROM_NAME', '').strip()
+            if from_name:
+                from_email = f'{from_name} <{from_email}>'
             if html_message:
                 msg = html_message
                 plain = strip_tags(html_message) if not plain_message else plain_message
@@ -138,7 +152,7 @@ class EmailNotificationService:
             send_mail(
                 subject=subject,
                 message=plain or msg or '',
-                from_email=settings.DEFAULT_FROM_EMAIL,
+                from_email=from_email,
                 recipient_list=recipient_list,
                 html_message=msg,
                 fail_silently=False,

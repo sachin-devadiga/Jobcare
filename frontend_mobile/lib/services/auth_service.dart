@@ -1,30 +1,33 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import '../core/constants.dart';
 import '../core/error.dart';
+import '../models/user_model.dart';
 import 'api_service.dart';
 import 'storage_service.dart';
-import '../models/user_model.dart';
 
 class AuthService {
   final ApiService _apiService;
   final StorageService _storageService;
 
-  AuthService(this._apiService, this._storageService);
+  AuthService(
+    this._apiService,
+    this._storageService,
+  );
 
-  Future<void> sendOtp({required String phone}) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-    
-    // TEST BYPASS: Instantly succeed if number ends in 000
-    if (cleanPhone.endsWith('000')) return;
-
+  Future<void> sendOtp({required String phone, String? email}) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    final normalizedPhone = cleanPhone.startsWith('+') ? cleanPhone : '+91$cleanPhone';
     try {
-      await _apiService.post(
-        'auth/phone/request-otp/',
-        data: {'phone': cleanPhone},
-      );
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.connectionError || e.type == DioExceptionType.connectionTimeout) {
-        throw const Failure(message: 'Cannot reach server. Tip: If using a real phone, ensure the IP in AppConstants is your PC\'s local IP. Or use a number ending in 000.');
+      final data = <String, dynamic>{'phone': normalizedPhone};
+      if (email != null && email.trim().isNotEmpty) {
+        data['email'] = email.trim();
       }
+      await _apiService.post(AppConstants.otpRequestEndpoint, data: data);
+      debugPrint('OTP sent: phone=$normalizedPhone, channel=${AppConstants.otpChannel}');
+    } on DioException catch (e) {
       throw handleException(e.error);
     }
   }
@@ -48,46 +51,54 @@ class AuthService {
     return UserModel.fromJson(payload['data'] as Map<String, dynamic>);
   }
 
+  Future<void> forgotPassword({required String email}) async {
+    try {
+      await _apiService.post('auth/forgot-password/', data: {'email': email});
+    } on DioException catch (e) {
+      throw handleException(e.error);
+    }
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String password,
+  }) async {
+    try {
+      await _apiService.post(
+        'auth/reset-password/',
+        data: {
+          'email': email,
+          'otp': otp,
+          'password': password,
+          'confirm_password': password,
+        },
+      );
+    } on DioException catch (e) {
+      throw handleException(e.error);
+    }
+  }
+
   Future<UserModel> verifyOtp({
     required String phone,
     required String otp,
     String? name,
   }) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-
-    // TEST BYPASS: Use 123456 as master OTP
-    if (cleanPhone.endsWith('000') && (otp == '123456' || otp == '000000')) {
-      final now = DateTime.now();
-      final user = UserModel(
-        id: 'test_user',
-        phone: cleanPhone,
-        name: name ?? 'Test Worker',
-        email: 'test@jobcare.voice',
-        role: UserRole.employee,
-        createdAt: now,
-        updatedAt: now,
-      );
-      await _saveTokens({
-        'access_token': 'test_access_token',
-        'refresh_token': 'test_refresh_token',
-        'user': user.toJson(),
-      });
-      return user;
-    }
-
     try {
+      final cleanPhone = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+      final normalizedPhone = cleanPhone.startsWith('+') ? cleanPhone : '+91$cleanPhone';
       final response = await _apiService.post(
-        'auth/phone/verify-otp/',
+        AppConstants.otpVerifyEndpoint,
         data: {
-          'phone': cleanPhone,
+          'phone': normalizedPhone,
           'otp': otp,
-          if (name != null) 'name': name,
+          if (name != null && name.isNotEmpty) 'name': name,
         },
       );
-      
+
       final data = response.data as Map<String, dynamic>;
       final authData = data['data'] as Map<String, dynamic>;
-      
+
       await _saveTokens({
         'access_token': authData['access'],
         'refresh_token': authData['refresh'],
@@ -107,6 +118,17 @@ class AuthService {
       return UserModel.fromJson(data['data'] as Map<String, dynamic>);
     } on DioException catch (e) {
       throw handleException(e.error);
+    }
+  }
+
+  Future<UserModel?> restoreSession() async {
+    final token = await _storageService.readToken();
+    if (token == null || token.isEmpty) return null;
+    try {
+      return await getCurrentUser();
+    } on Failure {
+      await _storageService.clear();
+      return null;
     }
   }
 

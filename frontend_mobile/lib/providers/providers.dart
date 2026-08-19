@@ -72,7 +72,7 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 });
 
 final voiceServiceProvider = Provider<VoiceService>((ref) {
-  return VoiceService();
+  return VoiceService(ref.read(apiServiceProvider));
 });
 
 final paymentServiceProvider = Provider<PaymentService>((ref) {

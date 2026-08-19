@@ -544,7 +544,7 @@ class TestSarvamAIService:
 
     def test_stt_fallback(self):
         result = self.service._stt_fallback('http://audio.mp3', 'hi')
-        assert result['success'] is True
+        assert result['success'] is False
         assert result['source'] == 'fallback'
         assert 'Voice processing is temporarily unavailable' in result.get('message', '')
 

@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import IntakeQuestion, CallSession, CallAnswer
+from config.admin_tools import export_as_csv
 
 class CallAnswerInline(admin.TabularInline):
     model = CallAnswer
@@ -28,6 +29,7 @@ class CallSessionAdmin(admin.ModelAdmin):
         ('PDF', {'fields': ('pdf_file',)}),
     )
     inlines = [CallAnswerInline]
+    actions = (export_as_csv,)
 
 @admin.register(CallAnswer)
 class CallAnswerAdmin(admin.ModelAdmin):

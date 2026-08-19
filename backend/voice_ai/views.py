@@ -1,9 +1,14 @@
 import time
 import logging
+import base64
+import uuid
+from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from .models import VoiceSession
@@ -19,9 +24,42 @@ logger = logging.getLogger('jobcare')
 sarvam_ai_service = SarvamAIService()
 
 
+def _looks_like_synthetic_tone(audio_path, silence_fraction_limit=0.04):
+    """Detect recordings with essentially no silence (e.g. the emulator's virtual-mic tone).
+
+    Real speech always contains pauses; a periodic synthetic tone does not.
+    Returns True when the audio is almost entirely non-silent, so callers can
+    reject it instead of feeding it to STT (which may hallucinate text from tones).
+    """
+    try:
+        import av as _av
+        import audioop as _audioop
+        container = _av.open(audio_path)
+        stream = container.streams.audio[0]
+        rate = stream.codec_context.sample_rate
+        raw = b''
+        for frame in container.decode(stream):
+            raw += bytes(frame.planes[0])
+        container.close()
+        if not raw:
+            return False
+        win = max(1, rate // 10)
+        frames = len(raw) // (2 * win)
+        if frames < 10:
+            return False
+        silent = 0
+        for i in range(0, frames * win * 2, win * 2):
+            if _audioop.rms(raw[i:i + win * 2], 2) < 800:
+                silent += 1
+        return (silent / frames) < silence_fraction_limit
+    except Exception:
+        logger.warning('Tone check skipped for %s', audio_path, exc_info=True)
+        return False
+
+
 @extend_schema(tags=['Voice AI'])
 class SpeechToTextView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
         request=SpeechToTextSerializer,
@@ -40,13 +78,22 @@ class SpeechToTextView(APIView):
             user=request.user if request.user.is_authenticated else None,
             session_type='speech_to_text',
             status='processing',
-            audio_url=serializer.validated_data.get('audio_url', ''),
+            audio_input=serializer.validated_data['audio'],
             input_text='',
         )
 
         try:
+            if _looks_like_synthetic_tone(session.audio_input.path):
+                session.status = 'failed'
+                session.error_message = 'No speech detected in the audio (microphone may not be connected)'
+                session.save()
+                return Response(
+                    {'success': False, 'message': 'No speech was recognized. Please speak clearly and try again.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             result = sarvam_ai_service.speech_to_text(
-                audio_url=serializer.validated_data.get('audio_url', ''),
+                audio_file=serializer.validated_data['audio'],
                 language=serializer.validated_data.get('language', 'hi'),
             )
 
@@ -72,11 +119,11 @@ class SpeechToTextView(APIView):
                 )
             else:
                 session.status = 'failed'
-                session.error_message = 'Speech recognition failed'
+                session.error_message = 'No speech was recognized in the audio'
                 session.save()
                 return Response(
-                    {'success': False, 'message': 'Speech recognition failed'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    {'success': False, 'message': 'No speech was recognized. Please speak clearly and try again.'},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
         except Exception as e:
             session.status = 'failed'
@@ -91,7 +138,7 @@ class SpeechToTextView(APIView):
 
 @extend_schema(tags=['Voice AI'])
 class TextToSpeechView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
         request=TextToSpeechSerializer,
@@ -107,7 +154,7 @@ class TextToSpeechView(APIView):
             )
 
         session = VoiceSession.objects.create(
-            user=request.user if request.user.is_authenticated else None,
+            user=request.user,
             session_type='text_to_speech',
             status='processing',
             input_text=serializer.validated_data['text'],
@@ -118,11 +165,21 @@ class TextToSpeechView(APIView):
                 text=serializer.validated_data['text'],
                 language=serializer.validated_data.get('language', 'hi'),
                 voice=serializer.validated_data.get('voice', 'male'),
+                pace=serializer.validated_data.get('pace', 1.0),
             )
 
-            if result and result.get('audio_url'):
+            if result and result.get('audio_content'):
+                try:
+                    audio = base64.b64decode(result['audio_content'], validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ValueError('Voice provider returned invalid audio data') from exc
+                path = default_storage.save(
+                    f'voice_tts/{uuid.uuid4()}.mp3',
+                    ContentFile(audio),
+                )
+                audio_url = request.build_absolute_uri(default_storage.url(path))
                 session.status = 'completed'
-                session.output_audio_url = result['audio_url']
+                session.output_audio_url = audio_url
                 session.processing_time_ms = result.get('processing_time_ms')
                 session.save()
 
@@ -130,7 +187,7 @@ class TextToSpeechView(APIView):
                     {
                         'success': True,
                         'data': {
-                            'audio_url': result['audio_url'],
+                            'audio_url': audio_url,
                             'processing_time_ms': result.get('processing_time_ms'),
                         },
                     },
@@ -157,7 +214,7 @@ class TextToSpeechView(APIView):
 
 @extend_schema(tags=['Voice AI'])
 class VoiceSearchView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
         request=VoiceSearchSerializer,
@@ -209,7 +266,7 @@ class VoiceSearchView(APIView):
 
 @extend_schema(tags=['Voice AI'])
 class VoiceNavigationView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
         request=VoiceSearchSerializer,
@@ -267,8 +324,14 @@ class VoiceSessionHistoryView(APIView):
     )
     def get(self, request):
         sessions = VoiceSession.objects.filter(user=request.user).order_by('-created_at')
-        page = int(request.query_params.get('page', 1))
-        per_page = int(request.query_params.get('per_page', 20))
+        try:
+            page = max(1, int(request.query_params.get('page', 1)))
+            per_page = min(100, max(1, int(request.query_params.get('per_page', 20))))
+        except ValueError:
+            return Response(
+                {'success': False, 'message': 'page and per_page must be integers'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         from django.core.paginator import Paginator
         paginator = Paginator(sessions, per_page)

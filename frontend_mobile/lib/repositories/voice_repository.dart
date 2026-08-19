@@ -97,7 +97,7 @@ class VoiceRepository {
   }) async {
     try {
       final response = await _apiService.post(
-        '/voice/extract-profile/',
+        'voice/extract-profile/',
         data: {
           'transcript': transcript,
           'language': language,

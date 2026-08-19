@@ -302,8 +302,12 @@ class EmployeeProfileModel {
           [],
       isAvailable: json['is_available'] as bool? ?? true,
       noticePeriod: json['notice_period'] as String?,
-      profileCompletionScore:
-          (json['profile_completion_score'] as num?)?.toDouble() ?? 0,
+      // Django stores completion as a percentage (0–100), while Flutter's
+      // progress widgets require a fraction (0–1).
+      profileCompletionScore: (() {
+        final score = (json['profile_completion_score'] as num?)?.toDouble() ?? 0;
+        return score > 1 ? score / 100 : score;
+      })(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );

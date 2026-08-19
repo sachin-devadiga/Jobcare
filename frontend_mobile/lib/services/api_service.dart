@@ -184,7 +184,10 @@ class _AuthInterceptor extends Interceptor {
     }
 
     final requestPath = err.requestOptions.path;
-    if (requestPath.contains('/auth/refresh') || requestPath.contains('/auth/login')) {
+    // Paths are relative to the API base URL (for example, `auth/refresh/`),
+    // so do not assume a leading slash here. A failed refresh must never try
+    // to refresh itself recursively.
+    if (requestPath.contains('auth/refresh') || requestPath.contains('auth/login')) {
       await _storageService.clear();
       handler.next(err);
       return;
@@ -209,13 +212,14 @@ class _AuthInterceptor extends Interceptor {
         }
 
         final response = await _dio.post(
-          '/auth/refresh',
-          data: {'refresh_token': refreshToken},
+          'auth/refresh/',
+          data: {'refresh': refreshToken},
           options: Options(headers: {'Authorization': ''}),
         );
 
-        final newToken = response.data['access_token'] as String;
-        final newRefreshToken = response.data['refresh_token'] as String?;
+        final refreshData = response.data['data'] as Map<String, dynamic>;
+        final newToken = refreshData['access'] as String;
+        final newRefreshToken = refreshData['refresh'] as String?;
         await _storageService.writeToken(newToken);
         if (newRefreshToken != null) {
           await _storageService.writeRefreshToken(newRefreshToken);

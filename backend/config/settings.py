@@ -2,12 +2,17 @@ import os
 from datetime import timedelta
 from pathlib import Path
 from decouple import config, Csv
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = config('DJANGO_SECRET_KEY', default='django-insecure-change-me-in-production')
-
 DEBUG = config('DEBUG', default=False, cast=bool)
+
+# A development-only fallback keeps local setup simple while production fails
+# closed if its secret has not been injected through the environment.
+SECRET_KEY = config('DJANGO_SECRET_KEY', default='django-insecure-local-development-key')
+if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
+    raise ImproperlyConfigured('DJANGO_SECRET_KEY must be set to a secure value when DEBUG is false.')
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
@@ -17,6 +22,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'django.contrib.humanize',
     'django.contrib.staticfiles',
     'django.contrib.postgres',
     'channels',
@@ -65,7 +71,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -161,6 +167,10 @@ REST_FRAMEWORK = {
     'ALLOWED_VERSIONS': ['v1'],
 }
 
+JWT_SIGNING_KEY = config('JWT_SECRET_KEY', default=SECRET_KEY)
+if not DEBUG and JWT_SIGNING_KEY == SECRET_KEY:
+    raise ImproperlyConfigured('JWT_SECRET_KEY must be configured separately when DEBUG is false.')
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=config('JWT_ACCESS_HOURS', default=24, cast=int)),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=config('JWT_REFRESH_DAYS', default=30, cast=int)),
@@ -168,7 +178,7 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
     'ALGORITHM': 'HS256',
-    'SIGNING_KEY': config('JWT_SECRET_KEY', default=SECRET_KEY),
+    'SIGNING_KEY': JWT_SIGNING_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_ID_FIELD': 'id',
@@ -217,6 +227,12 @@ CELERY_TIMEZONE = 'Asia/Kolkata'
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULE = {
+    'cleanup-stale-ivr-sessions': {
+        'task': 'call_intake.tasks.cleanup_stale_sessions',
+        'schedule': 600.0,
+    },
+}
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp-relay.sendinblue.com')
@@ -224,7 +240,8 @@ EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@jobcare.com')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@blieve.in')
+EMAIL_FROM_NAME = config('EMAIL_FROM_NAME', default='JobCare Voice')
 
 FIREBASE_CONFIG = {
     'type': config('FIREBASE_TYPE', default=''),
@@ -243,6 +260,8 @@ RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET', default='')
 
 SARVAM_AI_API_KEY = config('SARVAM_AI_API_KEY', default='')
 SARVAM_AI_BASE_URL = config('SARVAM_AI_BASE_URL', default='https://api.sarvam.ai')
+SARVAM_STT_MODEL = config('SARVAM_STT_MODEL', default='saaras:v3')
+SARVAM_TTS_MODEL = config('SARVAM_TTS_MODEL', default='bulbul:v3')
 
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 OPENAI_MODEL = config('OPENAI_MODEL', default='gpt-4o-mini')
@@ -252,6 +271,25 @@ EXOTEL_API_KEY = config('EXOTEL_API_KEY', default='')
 EXOTEL_API_TOKEN = config('EXOTEL_API_TOKEN', default='')
 EXOTEL_SUBDOMAIN = config('EXOTEL_SUBDOMAIN', default='')
 EXOTEL_SID = config('EXOTEL_SID', default='')
+EXOTEL_WEBHOOK_TOKEN = config('EXOTEL_WEBHOOK_TOKEN', default='')
+EXOTEL_RECORDING_ALLOWED_HOSTS = config('EXOTEL_RECORDING_ALLOWED_HOSTS', default='', cast=Csv())
+# Exotel SMS (OTP delivery — same API key/token/SID as Voice/IVR above)
+EXOTEL_SMS_SENDER_ID = config('EXOTEL_SMS_SENDER_ID', default='')
+EXOTEL_DLT_ENTITY_ID = config('EXOTEL_DLT_ENTITY_ID', default='')
+EXOTEL_DLT_TEMPLATE_ID = config('EXOTEL_DLT_TEMPLATE_ID', default='')
+EXOTEL_SMS_TYPE = config('EXOTEL_SMS_TYPE', default='transactional')
+
+# Active OTP delivery channel for phone login. 'email' is the temporary
+# fallback while Exotel SMS is blocked on DLT approval; flip to 'sms' once
+# DLT clears — a one-line config change, no code rewrite.
+AUTH_OTP_CHANNEL = config('AUTH_OTP_CHANNEL', default='email')
+
+# Plivo Configuration (replaces Firebase phone auth + powers IVR voice intake)
+PLIVO_AUTH_ID = config('PLIVO_AUTH_ID', default='')
+PLIVO_AUTH_TOKEN = config('PLIVO_AUTH_TOKEN', default='')
+PLIVO_SENDER_NUMBER = config('PLIVO_SENDER_NUMBER', default='')
+PLIVO_WEBHOOK_TOKEN = config('PLIVO_WEBHOOK_TOKEN', default='')
+PLIVO_RECORDING_ALLOWED_HOSTS = config('PLIVO_RECORDING_ALLOWED_HOSTS', default='s3.amazonaws.com,s3.us-east-1.amazonaws.com,plivo-prod-recording.s3.amazonaws.com', cast=Csv())
 
 LOGGING = {
     'version': 1,
@@ -319,6 +357,11 @@ FILE_UPLOAD_MAX_SIZE_MB = 10
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=not DEBUG, cast=bool)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool)
+SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=False, cast=bool)
 CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = True

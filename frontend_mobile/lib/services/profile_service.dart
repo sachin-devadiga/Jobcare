@@ -1,4 +1,4 @@
-import 'package:dio/dio.dart';
+﻿import 'package:dio/dio.dart';
 import '../core/error.dart';
 import 'api_service.dart';
 import '../models/employee_profile_model.dart';
@@ -11,7 +11,9 @@ class ProfileService {
 
   Future<EmployeeProfileModel> getEmployeeProfile() async {
     try {
-      final response = await _apiService.get('/users/profile/');
+      // Do not prefix API paths with '/': doing so drops the '/api/v1/' part
+      // of the configured base URL on Android.
+      final response = await _apiService.get('users/profile/');
       final data = response.data as Map<String, dynamic>;
       return EmployeeProfileModel.fromJson(data['data'] as Map<String, dynamic>);
     } on DioException catch (e) {
@@ -55,6 +57,8 @@ class ProfileService {
     double? latitude,
     double? longitude,
     List<String>? skills,
+    List<String>? languages,
+    int? experienceYears,
     List<Map<String, dynamic>>? education,
     List<Map<String, dynamic>>? experiences,
     String? expectedSalary,
@@ -66,8 +70,6 @@ class ProfileService {
     try {
       final body = <String, dynamic>{};
       if (fullName != null) body['full_name'] = fullName;
-      if (phone != null) body['phone'] = phone;
-      if (bio != null) body['bio'] = bio;
       if (dateOfBirth != null) body['date_of_birth'] = dateOfBirth;
       if (gender != null) body['gender'] = gender;
       if (address != null) body['address'] = address;
@@ -77,20 +79,20 @@ class ProfileService {
       if (latitude != null) body['latitude'] = latitude;
       if (longitude != null) body['longitude'] = longitude;
       if (skills != null) body['skills'] = skills;
+      if (languages != null) body['languages'] = languages;
+      if (experienceYears != null) body['experience_years'] = experienceYears;
       if (education != null) body['education'] = education;
       if (experiences != null) body['experiences'] = experiences;
       if (expectedSalary != null) body['expected_salary'] = expectedSalary;
-      if (preferredJobType != null) {
-        body['preferred_job_type'] = preferredJobType;
-      }
+      if (preferredJobType != null) body['preferred_job_categories'] = [preferredJobType];
       if (preferredLocations != null) {
         body['preferred_locations'] = preferredLocations;
       }
-      if (isAvailable != null) body['is_available'] = isAvailable;
-      if (noticePeriod != null) body['notice_period'] = noticePeriod;
+      if (isAvailable != null) body['availability'] = isAvailable ? 'immediate' : 'not_available';
+      if (noticePeriod != null && noticePeriod.isNotEmpty) body['availability'] = 'notice_period';
 
-      final response = await _apiService.put(
-        '/users/profile/',
+      final response = await _apiService.patch(
+        'users/profile/',
         data: body,
       );
       final data = response.data as Map<String, dynamic>;
@@ -130,14 +132,15 @@ class ProfileService {
   Future<String> uploadProfileImage(String filePath) async {
     try {
       final formData = FormData.fromMap({
-        'image': await MultipartFile.fromFile(filePath),
+        'avatar': await MultipartFile.fromFile(filePath),
       });
       final response = await _apiService.upload(
-        '/profile/image',
+        'users/profile/avatar/',
         data: formData,
       );
       final data = response.data as Map<String, dynamic>;
-      return data['image_url'] as String;
+      final profile = data['data'] as Map<String, dynamic>;
+      return profile['profile_image'] as String? ?? '';
     } on DioException catch (e) {
       throw handleException(e.error);
     }
@@ -149,7 +152,7 @@ class ProfileService {
         'resume': await MultipartFile.fromFile(filePath),
       });
       final response = await _apiService.upload(
-        '/profile/resume',
+        '/users/profile/resume/',
         data: formData,
       );
       final data = response.data as Map<String, dynamic>;
@@ -168,7 +171,7 @@ class ProfileService {
         ),
       });
       final response = await _apiService.upload(
-        '/profile/voice-resume',
+        '/users/profile/voice-resume/',
         data: formData,
       );
       final data = response.data as Map<String, dynamic>;
@@ -180,7 +183,7 @@ class ProfileService {
 
   Future<void> deleteResume() async {
     try {
-      await _apiService.delete('/profile/resume');
+      await _apiService.delete('/users/profile/resume/');
     } on DioException catch (e) {
       throw handleException(e.error);
     }
@@ -188,7 +191,7 @@ class ProfileService {
 
   Future<void> deleteVoiceResume() async {
     try {
-      await _apiService.delete('/profile/voice-resume');
+      await _apiService.delete('/users/profile/voice-resume/');
     } on DioException catch (e) {
       throw handleException(e.error);
     }
@@ -254,3 +257,4 @@ class ProfileService {
     }
   }
 }
+

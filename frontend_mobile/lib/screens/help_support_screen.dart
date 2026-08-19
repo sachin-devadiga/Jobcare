@@ -41,9 +41,9 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
               children: [
                 _buildContactCard(
                   title: lang == 'hi' ? 'हमें ईमेल करें' : (lang == 'kn' ? 'ನಮಗೆ ಇಮೇಲ್ ಮಾಡಿ' : 'Email Us'),
-                  subtitle: 'support@jobcare.com',
+                  subtitle: 'support@blieve.in',
                   icon: Icons.email_outlined,
-                  onTap: () => _launch(Uri(scheme: 'mailto', path: 'support@jobcare.com')),
+                  onTap: () => _launch(Uri(scheme: 'mailto', path: 'support@blieve.in')),
                 ),
                 _buildContactCard(
                   title: lang == 'hi' ? 'व्हाट्सएप चैट' : (lang == 'kn' ? 'ವಾಟ್ಸಾಪ್ ಚಾಟ್' : 'WhatsApp Support'),

@@ -10,7 +10,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   images: {
-    domains: ['localhost', 'api.jobcarevoice.com'],
+    domains: ['localhost', 'api.jobcare.voice', 'jobcare.voice'],
     formats: ['image/avif', 'image/webp'],
   },
   async rewrites() {

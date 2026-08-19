@@ -1,6 +1,8 @@
 import logging
+from datetime import timedelta
 from celery import shared_task
 from django.conf import settings
+from django.utils import timezone
 from .models import CallSession
 from .utils import generate_intake_pdf
 from notifications.services import EmailNotificationService
@@ -57,3 +59,25 @@ def process_completed_intake(session_id):
         logger.error(f"CallSession {session_id} not found")
     except Exception as e:
         logger.error(f"Error processing completed intake {session_id}: {str(e)}", exc_info=True)
+
+
+@shared_task(name='call_intake.tasks.cleanup_stale_sessions')
+def cleanup_stale_sessions():
+    """
+    Periodic task: mark in_progress sessions older than 10 minutes as abandoned.
+    This catches calls where the worker hung up but Plivo's hangup callback
+    was missed (e.g. network blip) or was never configured.
+    """
+    cutoff = timezone.now() - timedelta(minutes=10)
+    stale = CallSession.objects.filter(
+        status=CallSession.Status.IN_PROGRESS,
+        started_at__lt=cutoff,
+    )
+    count = stale.count()
+    if count:
+        stale.update(
+            status=CallSession.Status.ABANDONED,
+            completed_at=timezone.now(),
+        )
+        logger.info('Cleanup: marked %d stale session(s) as abandoned', count)
+    return count

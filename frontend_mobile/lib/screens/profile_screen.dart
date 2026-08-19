@@ -62,9 +62,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     lang: lang,
                   ),
                   const SizedBox(height: 16),
-                  _buildSectionCard(AppStrings.get('work_experience', lang), Icons.work_outline, () {}),
-                  _buildSectionCard(AppStrings.get('education', lang), Icons.school_outlined, () {}),
-                  _buildSectionCard(AppStrings.get('skills', lang), Icons.star_outline, () {}),
+                  _buildSectionCard(AppStrings.get('work_experience', lang), Icons.work_outline, _editExperiences),
+                  _buildSectionCard(AppStrings.get('education', lang), Icons.school_outlined, _editEducation),
+                  _buildSectionCard(AppStrings.get('skills', lang), Icons.star_outline, _editSkills),
                   const SizedBox(height: 24),
                   _buildLogoutButton(lang),
                   const SizedBox(height: 100),
@@ -105,6 +105,86 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             onPressed: () => context.push(RouteNames.editProfile),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _editSkills() async {
+    final profile = ref.read(profileProvider).employeeProfile;
+    final value = await _showCollectionEditor(
+      title: 'Skills',
+      hint: 'One skill per line, e.g. Driving',
+      initialValue: profile?.skills.join('\n') ?? '',
+    );
+    if (value == null) return;
+    final skills = value
+        .split('\n')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList();
+    await ref.read(profileProvider.notifier).updateEmployeeProfile(skills: skills);
+  }
+
+  Future<void> _editExperiences() async {
+    final profile = ref.read(profileProvider).employeeProfile;
+    final value = await _showCollectionEditor(
+      title: 'Work Experience',
+      hint: 'One entry per line: Company | Role',
+      initialValue: (profile?.experiences ?? const [])
+          .map((item) => '${item.company} | ${item.role}')
+          .join('\n'),
+    );
+    if (value == null) return;
+    final now = DateTime.now().toIso8601String();
+    final experiences = value.split('\n').map((line) {
+      final parts = line.split('|').map((part) => part.trim()).toList();
+      return <String, dynamic>{
+        'id': 'experience-${parts.join('-').hashCode}',
+        'company': parts.isNotEmpty ? parts.first : '',
+        'role': parts.length > 1 ? parts[1] : '',
+        'start_date': now,
+        'is_current': true,
+      };
+    }).where((item) => item['company'] != '' && item['role'] != '').toList();
+    await ref.read(profileProvider.notifier).updateEmployeeProfile(experiences: experiences);
+  }
+
+  Future<void> _editEducation() async {
+    final profile = ref.read(profileProvider).employeeProfile;
+    final value = await _showCollectionEditor(
+      title: 'Education',
+      hint: 'One entry per line: Institution | Degree',
+      initialValue: (profile?.education ?? const [])
+          .map((item) => '${item.institution} | ${item.degree}')
+          .join('\n'),
+    );
+    if (value == null) return;
+    final now = DateTime.now().toIso8601String();
+    final education = value.split('\n').map((line) {
+      final parts = line.split('|').map((part) => part.trim()).toList();
+      return <String, dynamic>{
+        'id': 'education-${parts.join('-').hashCode}',
+        'institution': parts.isNotEmpty ? parts.first : '',
+        'degree': parts.length > 1 ? parts[1] : '',
+        'start_date': now,
+        'is_current': false,
+      };
+    }).where((item) => item['institution'] != '' && item['degree'] != '').toList();
+    await ref.read(profileProvider.notifier).updateEmployeeProfile(education: education);
+  }
+
+  Future<String?> _showCollectionEditor({
+    required String title,
+    required String hint,
+    required String initialValue,
+  }) async {
+    return showDialog<String>(
+      context: context,
+      builder: (_) => _CollectionEditorDialog(
+        title: title,
+        hint: hint,
+        initialValue: initialValue,
       ),
     );
   }
@@ -188,6 +268,66 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return TextButton(
       onPressed: () => ref.read(authProvider.notifier).logout(),
       child: Text(AppStrings.get('logout', lang), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+    );
+  }
+}
+
+/// Owns its controller for exactly the lifetime of the modal route. This lets
+/// Flutter unmount the TextField before the controller is disposed.
+class _CollectionEditorDialog extends StatefulWidget {
+  const _CollectionEditorDialog({
+    required this.title,
+    required this.hint,
+    required this.initialValue,
+  });
+
+  final String title;
+  final String hint;
+  final String initialValue;
+
+  @override
+  State<_CollectionEditorDialog> createState() => _CollectionEditorDialogState();
+}
+
+class _CollectionEditorDialogState extends State<_CollectionEditorDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        minLines: 5,
+        maxLines: 10,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: InputDecoration(
+          hintText: widget.hint,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
