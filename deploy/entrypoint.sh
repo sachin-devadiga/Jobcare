@@ -5,7 +5,11 @@ set -e
 echo "=== JobCare Voice Backend Entrypoint ==="
 
 echo "=== Running database migrations ==="
-python manage.py migrate --noinput
+if ! python manage.py migrate --noinput 2>&1; then
+    echo "=== Migration failed, resetting database schema ==="
+    python manage.py dbshell -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+    python manage.py migrate --noinput
+fi
 
 echo "=== Collecting static files ==="
 python manage.py collectstatic --noinput --clear 2>/dev/null || echo "Static file collection skipped"
