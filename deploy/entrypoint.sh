@@ -7,7 +7,17 @@ echo "=== JobCare Voice Backend Entrypoint ==="
 echo "=== Running database migrations ==="
 if ! python manage.py migrate --noinput 2>&1; then
     echo "=== Migration failed, resetting database schema ==="
-    python manage.py dbshell -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+    python -c "
+from urllib.parse import urlparse
+import os, psycopg2
+url = urlparse(os.environ['DATABASE_URL'])
+conn = psycopg2.connect(dbname=url.path[1:], user=url.username, password=url.password, host=url.hostname, port=url.port)
+conn.autocommit = True
+cur = conn.cursor()
+cur.execute('DROP SCHEMA public CASCADE; CREATE SCHEMA public;')
+print('Schema reset complete')
+conn.close()
+"
     python manage.py migrate --noinput
 fi
 
