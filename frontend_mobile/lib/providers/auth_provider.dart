@@ -93,11 +93,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } on Failure catch (error) {
       state = state.copyWith(
         isLoginLoading: false,
-        failure: Failure(
-          message: kDebugMode
-              ? error.message
-              : 'Unable to send verification code. Please try again.',
-        ),
+        failure: error,
         otpSent: false,
       );
     } catch (error, stackTrace) {
@@ -106,8 +102,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoginLoading: false,
         failure: Failure(
           message: error is TimeoutException
-              ? 'Phone authentication timed out'
-              : (kDebugMode ? error.toString() : 'Unable to send verification code. Please try again.'),
+              ? 'Connection timed out. Server may be starting up, please try again.'
+              : error.toString(),
         ),
         otpSent: false,
       );

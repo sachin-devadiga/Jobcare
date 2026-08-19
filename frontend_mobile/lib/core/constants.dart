@@ -15,8 +15,8 @@ class AppConstants {
   );
   
   // Reduced timeouts to prevent the "Stuck" feeling
-  static const Duration apiTimeout = Duration(seconds: 15);
-  static const Duration authTimeout = Duration(seconds: 5); 
+  static const Duration apiTimeout = Duration(seconds: 30);
+  static const Duration authTimeout = Duration(seconds: 30); 
 
   static const String storageKeyToken = 'auth_token';
   static const String storageKeyRefreshToken = 'refresh_token';
