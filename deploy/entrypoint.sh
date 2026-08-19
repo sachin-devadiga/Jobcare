@@ -4,44 +4,6 @@ set -e
 
 echo "=== JobCare Voice Backend Entrypoint ==="
 
-# Function to wait for a service
-wait_for_service() {
-    local host="$1"
-    local port="$2"
-    local service_name="$3"
-    local max_attempts=60
-    local attempt=0
-
-    echo "Waiting for $service_name ($host:$port)..."
-    while ! nc -z "$host" "$port" 2>/dev/null; do
-        attempt=$((attempt + 1))
-        if [ "$attempt" -ge "$max_attempts" ]; then
-            echo "ERROR: $service_name not available after $max_attempts attempts"
-            exit 1
-        fi
-        sleep 2
-    done
-    echo "$service_name is available"
-}
-
-# Parse DB host/port from DATABASE_URL (format: postgres://user:pass@host:port/dbname)
-if [ -n "$DATABASE_URL" ]; then
-    DB_HOST=$(echo "$DATABASE_URL" | sed -n 's|.*@\([^:]*\):\([0-9]*\).*|\1|p')
-    DB_PORT=$(echo "$DATABASE_URL" | sed -n 's|.*@\([^:]*\):\([0-9]*\).*|\2|p')
-fi
-
-# Parse Redis host/port from REDIS_URL (format: redis://host:port)
-if [ -n "$REDIS_URL" ]; then
-    REDIS_HOST=$(echo "$REDIS_URL" | sed -n 's|redis://\([^:]*\):\([0-9]*\).*|\1|p')
-    REDIS_PORT=$(echo "$REDIS_URL" | sed -n 's|redis://\([^:]*\):\([0-9]*\).*|\2|p')
-fi
-
-# Wait for PostgreSQL
-wait_for_service "${DB_HOST:-localhost}" "${DB_PORT:-5432}" "PostgreSQL"
-
-# Wait for Redis
-wait_for_service "${REDIS_HOST:-localhost}" "${REDIS_PORT:-6379}" "Redis"
-
 echo "=== Running database migrations ==="
 python manage.py migrate --noinput
 
