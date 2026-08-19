@@ -122,8 +122,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               _buildOtpView(authState, lang)
             else
               _buildPhoneView(authState, lang),
-
-            ),
           ],
         ),
       ),
