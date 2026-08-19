@@ -39,3 +39,4 @@ dj-database-url>=2.2,<2.3
 python-magic>=0.4,<0.5
 tenacity>=8.2,<9.0
 setuptools>=70.0,<71.0
+argon2-cffi>=23.1,<24.0
