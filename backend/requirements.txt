@@ -37,3 +37,4 @@ reportlab>=4.2,<4.3
 plivo>=4.61,<4.62
 dj-database-url>=2.2,<2.3
 python-magic>=0.4,<0.5
+tenacity>=8.2,<9.0
