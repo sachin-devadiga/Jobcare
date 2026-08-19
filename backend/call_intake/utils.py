@@ -174,7 +174,7 @@ def generate_intake_pdf(session):
         footer_style,
     ))
     elements.append(Paragraph(
-        f"JobCare Voice — India's first AI voice job platform for workers",
+        f"JobCare — India's first AI voice job platform for workers",
         small_style,
     ))
 

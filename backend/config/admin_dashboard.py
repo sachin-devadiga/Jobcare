@@ -19,7 +19,7 @@ from users.models import EmployeeProfile
 from voice_ai.models import VoiceSession
 
 
-admin.site.site_header = 'JobCare Voice Administration'
+admin.site.site_header = 'JobCare Administration'
 admin.site.site_title = 'JobCare Admin'
 admin.site.index_title = 'Platform management'
 

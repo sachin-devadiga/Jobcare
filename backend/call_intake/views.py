@@ -285,7 +285,7 @@ class PlivoIVRWebhookView(APIView):
             '<GetInput inputType="dtmf" numDigits="1"'
             f' action="{action_url}" method="POST"'
             ' executionTimeout="15000" retries="1">\n'
-            '    <Speak>Welcome to JobCare Voice Intake.'
+            '    <Speak>Welcome to JobCare Intake.'
             ' For Hindi press 1. For Kannada press 2.'
             ' For Tamil press 3.</Speak>\n'
             '</GetInput>\n'

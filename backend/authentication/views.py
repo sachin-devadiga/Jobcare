@@ -433,7 +433,7 @@ class EmailOTPRequestView(APIView):
             )
         else:
             sent = EmailNotificationService().send_email(
-                subject='Your JobCare Voice OTP',
+                subject='Your JobCare OTP',
                 recipient_list=[email],
                 template_name='emails/otp.html',
                 context={'otp': otp},

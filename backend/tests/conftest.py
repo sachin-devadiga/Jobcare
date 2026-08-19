@@ -223,6 +223,6 @@ def notification(employee_user):
         recipient=employee_user,
         notification_type='general',
         title='Welcome',
-        body='Welcome to JobCare Voice!',
+        body='Welcome to JobCare!',
         is_read=False,
     )

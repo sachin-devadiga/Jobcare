@@ -86,7 +86,7 @@ class _AppLauncher extends ConsumerWidget {
     final lang = ref.watch(languageProvider);
 
     return MaterialApp.router(
-      title: 'JobCare Voice',
+      title: 'JobCare',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(lang),
       darkTheme: AppTheme.dark(lang),

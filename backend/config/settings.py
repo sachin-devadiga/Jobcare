@@ -19,11 +19,11 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv(
 
 JAZZMIN_SETTINGS = {
     'site_title': 'JobCare Admin',
-    'site_header': 'JobCare Voice',
-    'site_brand': 'JobCare Voice',
+    'site_header': 'JobCare',
+    'site_brand': 'JobCare',
     'site_logo': None,
     'welcome_sign': 'Welcome to JobCare Administration',
-    'copyright': 'JobCare Voice Ltd',
+    'copyright': 'JobCare Ltd',
     'search_model': ['authentication.User', 'jobs.Job'],
     'topmenu_links': [
         {'name': 'Home', 'url': 'admin:index', 'permissions': ['auth.view_user']},
@@ -276,7 +276,7 @@ SIMPLE_JWT = {
 }
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'JobCare Voice API',
+    'TITLE': 'JobCare API',
     'DESCRIPTION': 'AI-powered voice-enabled job portal API',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
@@ -326,7 +326,7 @@ EMAIL_TIMEOUT = config('EMAIL_TIMEOUT', default=10, cast=int)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@blieve.in')
-EMAIL_FROM_NAME = config('EMAIL_FROM_NAME', default='JobCare Voice')
+EMAIL_FROM_NAME = config('EMAIL_FROM_NAME', default='JobCare')
 BREVO_API_KEY = config('BREVO_API_KEY', default='')
 
 FIREBASE_CONFIG = {

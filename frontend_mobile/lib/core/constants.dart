@@ -1,7 +1,7 @@
 class AppConstants {
   AppConstants._();
 
-  static const String appName = 'JobCare Voice';
+  static const String appName = 'JobCare';
   
   // Supplied at build time, for example:
   // --dart-define=API_BASE_URL=https://api.blieve.in/api/v1/

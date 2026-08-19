@@ -65,7 +65,7 @@ class TestTextToSpeech:
             'audio_content': base64.b64encode(b'fake mp3 bytes').decode(),
             'processing_time_ms': 800,
         }
-        response = auth_client.post(TTS_URL, {'text': 'Hello, welcome to JobCare Voice'}, format='json')
+        response = auth_client.post(TTS_URL, {'text': 'Hello, welcome to JobCare'}, format='json')
         assert response.status_code == status.HTTP_200_OK
         assert response.data['data']['audio_url'].endswith('.mp3')
 

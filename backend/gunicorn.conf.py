@@ -1,4 +1,4 @@
-"""Gunicorn configuration for JobCare Voice backend."""
+"""Gunicorn configuration for JobCare backend."""
 
 import multiprocessing
 import os
@@ -26,7 +26,7 @@ graceful_timeout = int(os.environ.get("GUNICORN_GRACEFUL_TIMEOUT", 60))
 keepalive = int(os.environ.get("GUNICORN_KEEPALIVE", 5))
 
 # Process naming
-proc_name = "jobcare_voice"
+proc_name = "jobcare"
 pythonpath = BASE_DIR
 
 # Logging
@@ -72,7 +72,7 @@ reload_extra_files = []
 def when_ready(server):
     """Log when server is ready."""
     server.log.info(
-        "JobCare Voice server ready on %s with %d workers",
+        "JobCare server ready on %s with %d workers",
         bind,
         workers,
     )
@@ -80,12 +80,12 @@ def when_ready(server):
 
 def on_starting(server):
     """Log on starting."""
-    server.log.info("Starting JobCare Voice Gunicorn server")
+    server.log.info("Starting JobCare Gunicorn server")
 
 
 def on_exit(server):
     """Log on exit."""
-    server.log.info("Stopping JobCare Voice Gunicorn server")
+    server.log.info("Stopping JobCare Gunicorn server")
 
 
 def worker_int(worker):

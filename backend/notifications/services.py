@@ -130,7 +130,7 @@ class EmailNotificationService:
 
     def _get_from(self):
         from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', '')
-        from_name = getattr(settings, 'EMAIL_FROM_NAME', 'JobCare Voice')
+        from_name = getattr(settings, 'EMAIL_FROM_NAME', 'JobCare')
         return {'email': from_email, 'name': from_name}
 
     def send_email(

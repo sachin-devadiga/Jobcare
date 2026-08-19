@@ -692,7 +692,7 @@
     "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"]
   },
   "timezone": "Asia/Kolkata",
-  "title": "JobCare Voice - Production Dashboard",
+  "title": "JobCare - Production Dashboard",
   "uid": "jobcare-voice-prod",
   "version": 1,
   "weekStart": "monday"
