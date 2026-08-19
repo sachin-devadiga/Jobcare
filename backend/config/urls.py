@@ -5,7 +5,6 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from config.admin_dashboard import dashboard
 
 
 def health_check(request):
@@ -55,7 +54,6 @@ api_urlpatterns = [
 
 urlpatterns = [
     path('api/health/', health_check, name='health-check'),
-    path('admin/', dashboard, name='admin-dashboard'),
     path('admin/', admin.site.urls),
     path('api/v1/', include(api_urlpatterns)),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
