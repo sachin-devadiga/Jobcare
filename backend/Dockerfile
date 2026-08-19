@@ -72,22 +72,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl --fail http://localhost:8000/api/health/ || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
-
-# Stage 3: Development stage
-FROM builder AS development
-
-ENV DEBUG=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PATH="/venv/bin:$PATH"
-
-RUN pip install --no-cache-dir django-debug-toolbar ipython
-
-COPY deploy/entrypoint.sh /entrypoint.sh
-COPY deploy/entrypoint_celery.sh /entrypoint_celery.sh
-COPY deploy/entrypoint_celery_beat.sh /entrypoint_celery_beat.sh
-RUN chmod +x /entrypoint.sh /entrypoint_celery.sh /entrypoint_celery_beat.sh
-
-EXPOSE 8000
-
-CMD ["/entrypoint.sh"]

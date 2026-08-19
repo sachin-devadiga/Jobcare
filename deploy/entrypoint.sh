@@ -24,11 +24,23 @@ wait_for_service() {
     echo "$service_name is available"
 }
 
+# Parse DB host/port from DATABASE_URL (format: postgres://user:pass@host:port/dbname)
+if [ -n "$DATABASE_URL" ]; then
+    DB_HOST=$(echo "$DATABASE_URL" | sed -n 's|.*@\([^:]*\):\([0-9]*\).*|\1|p')
+    DB_PORT=$(echo "$DATABASE_URL" | sed -n 's|.*@\([^:]*\):\([0-9]*\).*|\2|p')
+fi
+
+# Parse Redis host/port from REDIS_URL (format: redis://host:port)
+if [ -n "$REDIS_URL" ]; then
+    REDIS_HOST=$(echo "$REDIS_URL" | sed -n 's|redis://\([^:]*\):\([0-9]*\).*|\1|p')
+    REDIS_PORT=$(echo "$REDIS_URL" | sed -n 's|redis://\([^:]*\):\([0-9]*\).*|\2|p')
+fi
+
 # Wait for PostgreSQL
-wait_for_service "${DB_HOST:-postgres}" "${DB_PORT:-5432}" "PostgreSQL"
+wait_for_service "${DB_HOST:-localhost}" "${DB_PORT:-5432}" "PostgreSQL"
 
 # Wait for Redis
-wait_for_service "${REDIS_HOST:-redis}" "${REDIS_PORT:-6379}" "Redis"
+wait_for_service "${REDIS_HOST:-localhost}" "${REDIS_PORT:-6379}" "Redis"
 
 echo "=== Running database migrations ==="
 python manage.py migrate --noinput
