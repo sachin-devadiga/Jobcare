@@ -123,21 +123,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             else
               _buildPhoneView(authState, lang),
 
-            // HELP/TEST MODE
-            if (!authState.otpSent && !authState.isNewUser)
-              Padding(
-                padding: const EdgeInsets.only(top: 60),
-                child: Center(
-                  child: TextButton(
-                    onPressed: () {
-                      _phoneController.text = '9876543000';
-                      _onGetOtp();
-                    },
-                    child: const Text('Testing? Use 9876543000 to bypass', 
-                      style: TextStyle(color: Colors.grey, decoration: TextDecoration.underline)),
-                  ),
-                ),
-              ),
+            ),
           ],
         ),
       ),

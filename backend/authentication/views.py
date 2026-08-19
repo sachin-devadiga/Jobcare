@@ -424,6 +424,13 @@ class EmailOTPRequestView(APIView):
             )
         if settings.DEBUG and not smtp_configured:
             pass
+        elif not smtp_configured:
+            logger.error('Email OTP requested but SMTP is not configured')
+            cache.delete(f'email_otp:{phone}')
+            return Response(
+                {'success': False, 'message': 'Email service not configured. Please contact support.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         else:
             sent = EmailNotificationService().send_email(
                 subject='Your JobCare Voice OTP',
