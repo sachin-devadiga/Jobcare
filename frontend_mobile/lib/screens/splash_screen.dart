@@ -79,15 +79,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   letterSpacing: -1,
                 ),
               ),
-              const Text(
-                'VOICE',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 4,
-                ),
-              ),
             ],
           ),
         ),

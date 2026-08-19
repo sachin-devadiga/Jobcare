@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">JobCare Voice</string>
+    <string name="app_name">JobCare</string>
     <string name="app_tagline">India\'s First AI Voice Job Platform</string>
     <string name="app_description">AI-powered voice-first job platform for blue-collar and grey-collar workers in India. Search and apply for jobs using voice in Hindi, English, Tamil, Telugu, and more Indian languages.</string>
     <string name="google_maps_key">YOUR_GOOGLE_MAPS_API_KEY_HERE</string>
@@ -9,7 +9,7 @@
     <string name="default_notification_channel_name">Job Alerts</string>
     <string name="default_notification_channel_description">Get notified about new jobs, application updates, and interview invites</string>
     <string name="fcm_fallback_notification_channel_label">General Notifications</string>
-    <string name="app_share_text">Find your dream job with JobCare Voice - India\'s first AI voice job platform. Download now: https://jobcarevoice.com/download</string>
+    <string name="app_share_text">Find your dream job with JobCare - India\'s first AI voice job platform. Download now: https://jobcarevoice.com/download</string>
     <string name="privacy_policy_url">https://jobcarevoice.com/privacy</string>
     <string name="terms_of_service_url">https://jobcarevoice.com/terms</string>
     <string name="support_email">support@jobcarevoice.com</string>
