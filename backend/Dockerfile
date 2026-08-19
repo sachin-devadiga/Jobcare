@@ -44,6 +44,7 @@ RUN apt-get update && \
         gettext \
         curl \
         netcat-openbsd \
+        libmagic1 \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p $APP_HOME $APP_HOME/staticfiles $APP_HOME/media $APP_HOME/logs && \
