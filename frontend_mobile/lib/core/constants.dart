@@ -11,7 +11,7 @@ class AppConstants {
   // --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1/
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.1.4:8000/api/v1/',
+    defaultValue: 'https://jobcare-xp3w.onrender.com/api/v1/',
   );
   
   // Reduced timeouts to prevent the "Stuck" feeling
