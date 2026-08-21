@@ -152,26 +152,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _editEducation() async {
     final profile = ref.read(profileProvider).employeeProfile;
-    final value = await _showCollectionEditor(
-      title: 'Education',
-      hint: 'One entry per line: Institution | Degree',
-      initialValue: (profile?.education ?? const [])
-          .map((item) => '${item.institution} | ${item.degree}')
-          .join('\n'),
+    final result = await showDialog<List<Map<String, dynamic>>>(
+      context: context,
+      builder: (_) => _EducationDialog(
+        initialEducation: profile?.education ?? const [],
+      ),
     );
-    if (value == null) return;
-    final now = DateTime.now().toIso8601String();
-    final education = value.split('\n').map((line) {
-      final parts = line.split('|').map((part) => part.trim()).toList();
-      return <String, dynamic>{
-        'id': 'education-${parts.join('-').hashCode}',
-        'institution': parts.isNotEmpty ? parts.first : '',
-        'degree': parts.length > 1 ? parts[1] : '',
-        'start_date': now,
-        'is_current': false,
-      };
-    }).where((item) => item['institution'] != '' && item['degree'] != '').toList();
-    await ref.read(profileProvider.notifier).updateEmployeeProfile(education: education);
+    if (result == null) return;
+    await ref.read(profileProvider.notifier).updateEmployeeProfile(education: result);
   }
 
   Future<String?> _showCollectionEditor({
@@ -272,8 +260,147 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
-/// Owns its controller for exactly the lifetime of the modal route. This lets
-/// Flutter unmount the TextField before the controller is disposed.
+const List<String> _educationLevels = [
+  'SSLC',
+  'PUC / 12th',
+  'Diploma',
+  'Bachelor\'s Degree',
+  'Master\'s Degree',
+  'PhD',
+  'ITI',
+  'Vocational Training',
+  'Other',
+];
+
+class _EducationDialog extends StatefulWidget {
+  const _EducationDialog({required this.initialEducation});
+  final List<dynamic> initialEducation;
+
+  @override
+  State<_EducationDialog> createState() => _EducationDialogState();
+}
+
+class _EducationDialogState extends State<_EducationDialog> {
+  late List<Map<String, dynamic>> _entries;
+
+  @override
+  void initState() {
+    super.initState();
+    _entries = widget.initialEducation.map<Map<String, dynamic>>((e) => {
+      'degree': e['degree'] ?? '',
+      'institution': e['institution'] ?? '',
+      'field': e['field'] ?? '',
+    }).toList();
+    if (_entries.isEmpty) {
+      _entries.add({'degree': '', 'institution': '', 'field': ''});
+    }
+  }
+
+  void _addEntry() {
+    setState(() => _entries.add({'degree': '', 'institution': '', 'field': ''}));
+  }
+
+  void _removeEntry(int index) {
+    setState(() {
+      _entries.removeAt(index);
+      if (_entries.isEmpty) _entries.add({'degree': '', 'institution': '', 'field': ''});
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Education'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: _entries.length,
+          itemBuilder: (context, index) {
+            final entry = _entries[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: entry['degree'].isNotEmpty ? entry['degree'] : null,
+                          hint: const Text('Select qualification'),
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                          items: _educationLevels
+                              .map((level) => DropdownMenuItem(value: level, child: Text(level)))
+                              .toList(),
+                          onChanged: (val) => setState(() => entry['degree'] = val ?? ''),
+                        ),
+                      ),
+                      if (_entries.length > 1)
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 22),
+                          onPressed: () => _removeEntry(index),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: TextEditingController(text: entry['institution']),
+                    decoration: const InputDecoration(
+                      hintText: 'Institution / College name',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (val) => entry['institution'] = val.trim(),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: TextEditingController(text: entry['field']),
+                    decoration: const InputDecoration(
+                      hintText: 'Field of study (optional)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (val) => entry['field'] = val.trim(),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: _addEntry,
+          child: const Text('+ Add More'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final valid = _entries
+                .where((e) => e['degree'].toString().isNotEmpty)
+                .map((e) => {
+                      'degree': e['degree'],
+                      'institution': e['institution'],
+                      'field': e['field'],
+                    })
+                .toList();
+            Navigator.pop(context, valid);
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
 class _CollectionEditorDialog extends StatefulWidget {
   const _CollectionEditorDialog({
     required this.title,
